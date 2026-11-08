@@ -102,6 +102,31 @@ summary{cursor:pointer;font-weight:600;color:var(--accent)}
 .summary-list dt{color:var(--muted)}
 .summary-list dd{margin:0}
 @media (max-width:520px){.summary-list{grid-template-columns:1fr}.summary-list dt{margin-top:6px}}
+.field{display:block;margin:12px 0}
+.field-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+.field-head>span{font-weight:600}
+small.hint{display:block;color:var(--muted);margin:-2px 0 4px}
+.must{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 7px;cursor:pointer;white-space:nowrap;min-height:30px}
+.must input{width:16px;height:16px;margin:0;accent-color:var(--accent-2)}
+.must:has(input:checked){border-color:var(--accent-2);color:var(--warn);background:rgba(224,122,63,.1)}
+details.block{border:1px solid var(--line);border-radius:12px;margin:10px 0;background:var(--surface)}
+details.block>summary{list-style:none;padding:13px 14px;display:flex;flex-direction:column;gap:1px;color:var(--text)}
+details.block>summary::-webkit-details-marker{display:none}
+details.block>summary span::after{content:"＋";float:right;color:var(--accent);font-weight:700}
+details.block[open]>summary span::after{content:"－"}
+details.block>summary small{color:var(--muted);font-weight:400}
+details.block[open]>summary{border-bottom:1px solid var(--line)}
+.block-body{padding:2px 14px 12px}
+h4.sub{margin:16px 0 0;font-size:.95rem;color:var(--accent)}
+details.info{background:var(--surface-2);border-radius:8px;padding:8px 12px}
+ul.check-list{list-style:none;padding:0;margin:6px 0}
+ul.check-list li{padding:3px 0}
+.tab-panel{padding-top:2px}
+.summary-list.clickable [data-action=jump]{cursor:pointer}
+.summary-list.clickable dd[data-action=jump]{position:relative;padding-right:18px}
+.summary-list.clickable dd[data-action=jump]::after{content:"›";position:absolute;right:0;top:0;color:var(--accent);font-weight:700}
+.summary-list.clickable dd[data-action=jump]:hover,.summary-list.clickable dt[data-action=jump]:hover{color:var(--accent)}
+@media (max-width:480px){header.top h1 .t{display:none}header.top nav button{padding:8px 7px;font-size:.86rem}}
 .trip-row{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer}
 .tip{background:var(--surface-2);border-radius:10px;padding:12px;margin:10px 0}
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:50;max-width:90vw;box-shadow:var(--shadow)}
@@ -116,10 +141,11 @@ summary{cursor:pointer;font-weight:600;color:var(--accent)}
 <body>
 <header class="top">
   <div class="bar">
-    <h1 data-action="go" data-view="wizard">✈︎ Reiseberater</h1>
+    <h1 data-action="go" data-view="wizard">✈︎ <span class="t">Reiseberater</span></h1>
     <nav>
       <button data-action="go" data-view="wizard" id="nav-wizard">Planen</button>
       <button data-action="go" data-view="trips" id="nav-trips">Meine Reisen</button>
+      <button data-action="go" data-view="prefs" id="nav-prefs">Präferenzen</button>
       <button data-action="go" data-view="settings" id="nav-settings" aria-label="Einstellungen">⚙︎</button>
     </nav>
   </div>
@@ -163,6 +189,10 @@ const ARTEN = {
   allein_gruppe: { ico: "🤝", titel: "Allein – mit Anschluss", text: "Kleingruppentouren, Kurse, geführte Wanderungen und Unterkünfte mit Gemeinschaftsangeboten." }
 };
 
+const INFO_PAUSCHAL = `<p class="small">Eine <strong>Pauschalreise</strong> (mindestens zwei Reiseleistungen wie Flug und Hotel bei einem Veranstalter) bietet gesetzlichen Insolvenzschutz (Sicherungsschein), einen Ansprechpartner bei Problemen und die Haftung des Veranstalters für Mängel.</p>
+<p class="small"><strong>Einzelbausteine</strong> sind oft flexibler und manchmal günstiger. Bei Problemen ist aber jeder Anbieter einzeln zuständig – fällt z. B. ein Flug aus, bleibt das Hotel trotzdem zu bezahlen.</p>`;
+const INFO_VERSICHERUNG = `Prüfen Sie vor der Buchung, ob eine <strong>Reiserücktritts-</strong> und eine <strong>Auslandsreisekrankenversicherung</strong> sinnvoll sind. Manche Kreditkarten, Automobilclubs oder bestehende Verträge enthalten bereits Schutz – vorher nachsehen spart doppelte Kosten. Die App empfiehlt keine Anbieter.`;
+
 const INTERESSEN = ["Kultur","Natur","Strand","Wandern","Kulinarik","Wein","Wellness","Städte","Geschichte","Kunst","Fotografie","Radfahren","Wassersport","Musik & Events","Shopping","Nachtleben"];
 const GRUPPENFORMATE = ["Kleingruppentouren","Kurse","Geführte Wanderungen","Tagesausflüge in der Gruppe","Free Walking Tours","Gemeinsame Abendessen","Reiseveranstalter für Alleinreisende"];
 
@@ -204,7 +234,9 @@ const S = {
   tripDay: null,
   loading: null,       // { title, msgs, started }
   error: null,
-  open: new Set(["rahmen"])   // aufgeklappte Themenblöcke
+  tab3: "rahmen",       // aktiver Reiter in Schritt 3
+  prefs: null,          // gespeicherte Präferenzen je Reiseart (aus D1)
+  prefArt: "paar", prefTab: "rahmen", prefDraft: null, prefDraftArt: null, prefDirty: false
 };
 const saveProfile = () => store.set("rb_profile", S.profile);
 
@@ -273,16 +305,21 @@ async function runLoading(title, msgs, fn) {
    Rendering
    ================================================================ */
 function render() {
-  ["wizard", "trips", "settings"].forEach((v) => {
+  ["wizard", "trips", "prefs", "settings"].forEach((v) => {
     const el = document.getElementById("nav-" + v);
     const active = v === S.view || (v === "wizard" && ["offers", "guide"].includes(S.view)) || (v === "trips" && S.view === "trip");
     el.classList.toggle("active", active);
   });
 
   if (S.loading) { $app.innerHTML = viewLoading(); tickLoading(); return; }
-  const views = { wizard: viewWizard, offers: viewOffers, guide: viewGuide, trips: viewTrips, trip: viewTrip, settings: viewSettings };
+  const views = { wizard: viewWizard, offers: viewOffers, guide: viewGuide, trips: viewTrips, trip: viewTrip, prefs: viewPrefs, settings: viewSettings };
   $app.innerHTML = (S.error ? `<div class="notice error"><strong>Hinweis:</strong> ${esc(S.error)}</div>` : "") + (views[S.view] || viewWizard)();
   if (S.view === "trips" && S.trips === null) loadTrips();
+  // aktiven Reiter in der waagrechten Leiste sichtbar halten
+  document.querySelectorAll(".tabs").forEach((bar) => {
+    const on = bar.querySelector("button.on");
+    if (on) bar.scrollLeft = Math.max(0, on.offsetLeft - bar.offsetLeft - 16);
+  });
 }
 
 let loadingTimer = null;
@@ -311,33 +348,143 @@ function tickLoading() {
 function stepBar(n) { return `<div class="steps" aria-label="Schritt ${n} von 5">${[1,2,3,4,5].map((i) => `<span class="${i <= n ? "on" : ""}"></span>`).join("")}</div>`; }
 const dflt = `<span class="default-tag">Vorschlag</span>`;
 
+let CTX_OBJ = null;                       // Ziel der Felder beim Zeichnen (Profil oder Präferenzen)
+const cur = () => CTX_OBJ || S.profile;
+function scopeObj(el) {
+  const sc = el.closest("[data-scope]");
+  return sc && sc.dataset.scope === "prefs" ? S.prefDraft : S.profile;
+}
+
 function chipGroup(path, options) {
-  const sel = getPath(S.profile, path) || [];
+  const sel = getPath(cur(), path) || [];
   return `<div class="chips">${options.map((o) => `<button type="button" class="chip ${sel.includes(o) ? "on" : ""}" data-action="chip" data-path="${path}" data-value="${esc(o)}">${esc(o)}</button>`).join("")}</div>`;
 }
 /** Schalter "muss": ein angehaktes Kriterium wird zum Ausschlusskriterium */
 function mustToggle(key) {
   if (!key) return "";
   return `<label class="must" title="Angehakt: Angebote ohne dieses Merkmal werden ausgeschlossen. Sonst wird es nur bevorzugt.">
-    <input type="checkbox" data-must="${key}" ${S.profile.muss[key] ? "checked" : ""}> muss</label>`;
+    <input type="checkbox" data-must="${key}" ${(cur().muss || {})[key] ? "checked" : ""}> muss</label>`;
 }
 function fieldHead(label, mustKey, hint = "") {
   return `<div class="field-head"><span>${label} ${dflt}</span>${mustToggle(mustKey)}</div>${hint ? `<small class="hint">${hint}</small>` : ""}`;
 }
 function selectField(path, label, options, mustKey = "", hint = "") {
-  const v = getPath(S.profile, path);
+  const v = getPath(cur(), path);
   return `<div class="field">${fieldHead(label, mustKey, hint)}
     <select data-bind="${path}" aria-label="${esc(label)}">${options.map((o) => { const [val, txt] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(val)}" ${String(v) === String(val) ? "selected" : ""}>${esc(txt)}</option>`; }).join("")}</select></div>`;
 }
 function chipField(path, label, options, mustKey = "", hint = "") {
   return `<div class="field">${fieldHead(label, mustKey, hint)}${chipGroup(path, options)}</div>`;
 }
-function block(id, title, sub, inner) {
-  return `<details class="block" data-block="${id}" ${S.open.has(id) ? "open" : ""}>
-    <summary><span>${title}</span><small>${sub}</small></summary><div class="block-body">${inner}</div></details>`;
-}
 const fliegt = (p) => p.verkehrsmittel === "flexibel" || p.verkehrsmittel === "Flug";
 const bahnt = (p) => p.verkehrsmittel === "flexibel" || p.verkehrsmittel === "Bahn";
+
+/* ---------------- Reiter (Schritt 3 und Präferenzen) ---------------- */
+function tabRahmen(p) {
+  return `
+    <label class="field"><span>Abreiseort ${dflt}</span><input type="text" data-bind="abreiseOrt" value="${esc(p.abreiseOrt)}"></label>
+    ${selectField("verkehrsmittel", "Anreise", [["flexibel", "flexibel – Bahn, Auto oder Flug, je nach Ziel"], ["Flug", "Flug (FRA, STR, FKB)"], ["Bahn", "Bahn"], ["Auto", "Auto"]])}
+    <div class="row">
+      <label class="field"><span>Budget p. P. von (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMin" value="${esc(p.budgetMin)}"></label>
+      <label class="field"><span>bis (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMax" value="${esc(p.budgetMax)}"></label>
+    </div>
+    <p class="small muted">Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum.</p>`;
+}
+function tabHotel(p) {
+  return `
+    <div class="row">
+      ${selectField("unterkunft", "Unterkunftsart", ["Hotel", "Boutique-Hotel", "Ferienwohnung", "Pension / B&B", "Resort", "Agriturismo / Landgut", "egal – bestes Angebot"], "unterkunft")}
+      ${selectField("sterne", "Kategorie", [[3, "ca. 3 Sterne"], [4, "ca. 4 Sterne"], [5, "ca. 5 Sterne"], [0, "egal"]], "sterne")}
+    </div>
+    <div class="row">
+      ${selectField("hotel.bewertungMin", "Gästebewertung", [[0, "egal"], [7.5, "ab 7,5 von 10"], [8, "ab 8,0 von 10"], [8.5, "ab 8,5 von 10"], [9, "ab 9,0 von 10"]], "bewertung")}
+      ${selectField("hotel.groesse", "Größe des Hauses", ["egal", "klein & familiär", "mittelgroß", "großes Haus / Resort"], "groesse")}
+    </div>
+    ${p.reiseart === "paar" ? selectField("hotel.adultsOnly", "Erwachsenenhotel", [["ja", "Erwachsenenhotel bevorzugt"], ["nein", "egal"]], "adultsOnly") : ""}
+    ${selectField("hotel.lage", "Lage", ["ruhig, Zentrum zu Fuß/ÖPNV erreichbar", "direkt am Strand", "Altstadt / mitten im Zentrum", "ländlich / in der Natur", "egal"], "lage")}
+    ${selectField("hotel.entfernung", "Entfernung zu Zentrum oder Strand", ["egal", "max. 10 Min. zu Fuß", "max. 20 Min. zu Fuß oder mit ÖPNV", "max. 30 Min. mit dem Auto"], "entfernung")}
+    ${chipField("hotel.zimmer", "Zimmer", ["Balkon / Terrasse", "Meerblick", "Bergblick", "Suite", "Badewanne", "ruhige Zimmerseite"], "zimmer")}`;
+}
+function tabAusstattung(p) {
+  return `
+    ${chipField("hotel.ausstattung", "Ausstattung", ["WLAN", "Klimaanlage", "Pool", "Spa / Wellness", "Fitness", "Parkplatz", "Aufzug", "barrierefrei", "Restaurant im Haus", "Bar"], "ausstattung")}
+    ${selectField("verpflegung", "Verpflegung", ["ohne", "Frühstück", "Halbpension", "All inclusive"], "verpflegung")}
+    <div class="field">${fieldHead("Ernährung", "ernaehrung", "optional, z. B. vegetarisch, glutenfrei, laktosefrei")}
+      <input type="text" data-bind="ernaehrung" value="${esc(p.ernaehrung)}" placeholder="keine Besonderheiten"></div>`;
+}
+function tabAnreise(p) {
+  let html = "";
+  if (p.verkehrsmittel === "Auto") html += `<p class="small muted">Anreise mit dem eigenen Auto – Parkplatz am Hotel ggf. im Reiter „Ausstattung“ wählen.</p>`;
+  if (fliegt(p)) html += `<h4 class="sub">Flug</h4>
+    ${selectField("flug.stopps", "Umstiege", [["direkt", "nur Direktflug"], ["max1", "max. 1 Umstieg, Direktflug bevorzugt"], ["egal", "egal"]], "stopps")}
+    <div class="row">
+      ${selectField("flug.abflugNichtVor", "Abflugzeit", [["egal", "egal"], ["06:00", "nicht vor 6 Uhr"], ["07:00", "nicht vor 7 Uhr"], ["08:00", "nicht vor 8 Uhr"], ["09:00", "nicht vor 9 Uhr"]], "abflug")}
+      ${selectField("flug.gepaeck", "Gepäck", [["inklusive", "Aufgabegepäck inklusive"], ["handgepaeck", "Handgepäck reicht"]], "gepaeck")}
+    </div>
+    ${selectField("flug.klasse", "Flugklasse", ["Economy", "Premium Economy", "Business"], "klasse")}`;
+  if (bahnt(p)) html += `<h4 class="sub">Bahn</h4>
+    <div class="row">
+      ${selectField("bahn.klasse", "Klasse", ["2. Klasse", "1. Klasse"], "bahnklasse")}
+      ${selectField("bahn.maxUmstiege", "Umstiege", [[0, "nur Direktverbindung"], [1, "max. 1"], [2, "max. 2"], [9, "egal"]], "umstiege")}
+    </div>`;
+  return html + selectField("transfer", "Transfer zum Hotel", [["gewünscht", "Transfer gewünscht"], ["selbst", "selbst organisiert"]], "transfer");
+}
+function tabMietwagen(p) {
+  const m = p.mietwagen;
+  return `
+    ${selectField("mietwagen.bedarf", "Mietwagen", [["sinnvoll", "nur wenn am Ziel sinnvoll"], ["immer", "für den ganzen Aufenthalt"], ["nie", "nie – ÖPNV, zu Fuß, Taxi"]])}
+    ${m.bedarf === "nie" ? "" : `<div class="row">
+      ${selectField("mietwagen.kategorie", "Kategorie", ["Kleinwagen", "Kompaktklasse", "Mittelklasse", "SUV", "Cabrio"], "mwKategorie")}
+      ${selectField("mietwagen.getriebe", "Getriebe", ["egal", "Automatik", "Schaltung"], "getriebe")}
+    </div>
+    <div class="row">
+      ${selectField("mietwagen.versicherung", "Versicherung", ["Vollkasko ohne Selbstbeteiligung", "Vollkasko mit Selbstbeteiligung"], "mwVersicherung")}
+      ${selectField("mietwagen.uebernahme", "Übernahme", ["Flughafen", "am Hotel / im Ort", "egal"], "uebernahme")}
+    </div>`}`;
+}
+function tabBuchung() {
+  return `
+    ${selectField("buchung.storno", "Stornierung", [["bevorzugt", "kostenlos stornierbar bevorzugt"], ["egal", "egal – günstigster Preis"]], "storno")}
+    ${selectField("buchung.art", "Buchungsart", [["vergleichen", "Pauschalreise und Einzelbuchung vergleichen"], ["pauschal", "Pauschalreise"], ["einzeln", "Einzelbausteine"]], "buchungsart")}
+    <details class="info"><summary>Pauschalreise oder Einzelbausteine?</summary>${INFO_PAUSCHAL}</details>
+    <p class="small muted">Einreisebestimmungen und ein Hinweis zu Reiseversicherungen erscheinen automatisch bei den Angeboten.</p>`;
+}
+function tabStil(p) {
+  let html = `<div class="field"><div class="field-head"><span>Reisestil ${dflt}</span></div>${chipGroup("stil", INTERESSEN)}</div>
+    ${selectField("tempo", "Tempo", [["ruhig", "ruhig – max. 1 Programmpunkt pro Tag"], ["moderat", "moderat – 1–2 Programmpunkte pro Tag"], ["aktiv", "aktiv – 2–3 Programmpunkte pro Tag"]])}`;
+  if (p.reiseart === "paar") {
+    html += `<h4 class="sub">Interessen beider Partner</h4>
+      <p class="small muted">Optional. Bei unterschiedlichen Interessen plant die App auch getrennte Halbtage.</p>
+      <div class="row">
+        <label class="field"><span>Name Partner/in 1</span><input type="text" data-bind="paar.nameA" value="${esc(p.paar.nameA)}" placeholder="optional"></label>
+        <label class="field"><span>Name Partner/in 2</span><input type="text" data-bind="paar.nameB" value="${esc(p.paar.nameB)}" placeholder="optional"></label>
+      </div>
+      <div class="field"><div class="field-head"><span>Besonders wichtig für ${esc(p.paar.nameA || "Partner/in 1")}</span></div>${chipGroup("paar.interessenA", INTERESSEN)}</div>
+      <div class="field"><div class="field-head"><span>Besonders wichtig für ${esc(p.paar.nameB || "Partner/in 2")}</span></div>${chipGroup("paar.interessenB", INTERESSEN)}</div>`;
+  }
+  if (p.reiseart === "allein_gruppe") {
+    html += `<h4 class="sub">Anschluss an andere</h4>
+      ${chipField("gruppe.formate", "Gewünschte Formate", GRUPPENFORMATE)}
+      <label class="field"><span>Bevorzugte Altersgruppe der Mitreisenden</span><small>optional, z. B. „50+“ oder „gemischt“</small><input type="text" data-bind="gruppe.alter" value="${esc(p.gruppe.alter)}"></label>`;
+  }
+  return html;
+}
+
+const PREF_TABS = [
+  ["rahmen", "Rahmen", tabRahmen], ["hotel", "Hotel & Lage", tabHotel], ["ausstattung", "Ausstattung", tabAusstattung],
+  ["anreise", "Anreise", tabAnreise], ["mietwagen", "Mietwagen", tabMietwagen], ["buchung", "Buchung", tabBuchung], ["stil", "Stil", tabStil]
+];
+const DETAIL_TABS = PREF_TABS.filter(([k]) => k !== "stil");   // Stil hat in der Planung einen eigenen Schritt
+
+/** Reiter samt Inhalt; alle Felder darin schreiben in das Objekt des angegebenen Bereichs (scope) */
+function prefTabs(obj, scope, current, tabs, action) {
+  const tab = tabs.find(([k]) => k === current) || tabs[0];
+  CTX_OBJ = obj;
+  try {
+    return `<div data-scope="${scope}">${tabsBar(tabs.map(([k, l]) => [k, l]), tab[0], action)}
+      <div class="tab-panel">${tab[2](obj)}</div></div>`;
+  } finally { CTX_OBJ = null; }
+}
 
 function viewWizard() {
   const p = S.profile, st = S.step;
@@ -350,6 +497,8 @@ function viewWizard() {
         <button type="button" class="choice ${p.reiseart === k ? "on" : ""}" data-action="art" data-value="${k}">
           <span class="ico" aria-hidden="true">${a.ico}</span><span><strong>${a.titel}</strong><span class="muted small">${a.text}</span></span>
         </button>`).join("")}</div>
+      ${S.prefs && S.prefs[p.reiseart] ? `<p class="small muted" style="margin-top:12px">Ihre gespeicherten Präferenzen für diese Reiseart werden automatisch verwendet.
+        <a href="#" data-action="apply-prefs">Jetzt neu übernehmen</a></p>` : ""}
       <div class="btns"><button class="btn" data-action="next">Weiter</button></div>`;
   }
 
@@ -374,104 +523,23 @@ function viewWizard() {
   }
 
   if (st === 3) {
-    const h = p.hotel, f = p.flug, b = p.bahn, m = p.mietwagen, bu = p.buchung;
-    const rahmen = `
-      <label class="field"><span>Abreiseort ${dflt}</span><input type="text" data-bind="abreiseOrt" value="${esc(p.abreiseOrt)}"></label>
-      ${selectField("verkehrsmittel", "Anreise", [["flexibel", "flexibel – Bahn, Auto oder Flug, je nach Ziel"], ["Flug", "Flug (FRA, STR, FKB)"], ["Bahn", "Bahn"], ["Auto", "Auto"]])}
-      <div class="row">
-        <label class="field"><span>Budget p. P. von (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMin" value="${esc(p.budgetMin)}"></label>
-        <label class="field"><span>bis (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMax" value="${esc(p.budgetMax)}"></label>
-      </div>
-      <p class="small muted">Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum.</p>`;
-
-    const hotel = `
-      <div class="row">
-        ${selectField("unterkunft", "Unterkunftsart", ["Hotel", "Boutique-Hotel", "Ferienwohnung", "Pension / B&B", "Resort", "Agriturismo / Landgut", "egal – bestes Angebot"], "unterkunft")}
-        ${selectField("sterne", "Kategorie", [[3, "ca. 3 Sterne"], [4, "ca. 4 Sterne"], [5, "ca. 5 Sterne"], [0, "egal"]], "sterne")}
-      </div>
-      <div class="row">
-        ${selectField("hotel.bewertungMin", "Gästebewertung", [[0, "egal"], [7.5, "ab 7,5 von 10"], [8, "ab 8,0 von 10"], [8.5, "ab 8,5 von 10"], [9, "ab 9,0 von 10"]], "bewertung")}
-        ${selectField("hotel.groesse", "Größe des Hauses", ["egal", "klein & familiär", "mittelgroß", "großes Haus / Resort"], "groesse")}
-      </div>
-      ${p.reiseart === "paar" ? selectField("hotel.adultsOnly", "Erwachsenenhotel", [["ja", "Erwachsenenhotel bevorzugt"], ["nein", "egal"]], "adultsOnly") : ""}
-      ${selectField("hotel.lage", "Lage", ["ruhig, Zentrum zu Fuß/ÖPNV erreichbar", "direkt am Strand", "Altstadt / mitten im Zentrum", "ländlich / in der Natur", "egal"], "lage")}
-      ${selectField("hotel.entfernung", "Entfernung zu Zentrum oder Strand", ["egal", "max. 10 Min. zu Fuß", "max. 20 Min. zu Fuß oder mit ÖPNV", "max. 30 Min. mit dem Auto"], "entfernung")}
-      ${chipField("hotel.zimmer", "Zimmer", ["Balkon / Terrasse", "Meerblick", "Bergblick", "Suite", "Badewanne", "ruhige Zimmerseite"], "zimmer")}`;
-
-    const ausstattung = `
-      ${chipField("hotel.ausstattung", "Ausstattung", ["WLAN", "Klimaanlage", "Pool", "Spa / Wellness", "Fitness", "Parkplatz", "Aufzug", "barrierefrei", "Restaurant im Haus", "Bar"], "ausstattung")}
-      ${selectField("verpflegung", "Verpflegung", ["ohne", "Frühstück", "Halbpension", "All inclusive"], "verpflegung")}
-      <div class="field">${fieldHead("Ernährung", "ernaehrung", "optional, z. B. vegetarisch, glutenfrei, laktosefrei")}
-        <input type="text" data-bind="ernaehrung" value="${esc(p.ernaehrung)}" placeholder="keine Besonderheiten"></div>`;
-
-    let anreise = "";
-    if (fliegt(p)) anreise += `<h4 class="sub">Flug</h4>
-      ${selectField("flug.stopps", "Umstiege", [["direkt", "nur Direktflug"], ["max1", "max. 1 Umstieg, Direktflug bevorzugt"], ["egal", "egal"]], "stopps")}
-      <div class="row">
-        ${selectField("flug.abflugNichtVor", "Abflugzeit", [["egal", "egal"], ["06:00", "nicht vor 6 Uhr"], ["07:00", "nicht vor 7 Uhr"], ["08:00", "nicht vor 8 Uhr"], ["09:00", "nicht vor 9 Uhr"]], "abflug")}
-        ${selectField("flug.gepaeck", "Gepäck", [["inklusive", "Aufgabegepäck inklusive"], ["handgepaeck", "Handgepäck reicht"]], "gepaeck")}
-      </div>
-      ${selectField("flug.klasse", "Flugklasse", ["Economy", "Premium Economy", "Business"], "klasse")}`;
-    if (bahnt(p)) anreise += `<h4 class="sub">Bahn</h4>
-      <div class="row">
-        ${selectField("bahn.klasse", "Klasse", ["2. Klasse", "1. Klasse"], "bahnklasse")}
-        ${selectField("bahn.maxUmstiege", "Umstiege", [[0, "nur Direktverbindung"], [1, "max. 1"], [2, "max. 2"], [9, "egal"]], "umstiege")}
-      </div>`;
-    anreise += selectField("transfer", "Transfer zum Hotel", [["gewünscht", "Transfer gewünscht"], ["selbst", "selbst organisiert"]], "transfer");
-    if (p.verkehrsmittel === "Auto") anreise = `<p class="small muted">Anreise mit dem eigenen Auto – Parkplatz am Hotel ggf. unter „Ausstattung“ wählen.</p>` + anreise;
-
-    const mietwagen = `
-      ${selectField("mietwagen.bedarf", "Mietwagen", [["sinnvoll", "nur wenn am Ziel sinnvoll"], ["immer", "für den ganzen Aufenthalt"], ["nie", "nie – ÖPNV, zu Fuß, Taxi"]])}
-      ${m.bedarf === "nie" ? "" : `<div class="row">
-        ${selectField("mietwagen.kategorie", "Kategorie", ["Kleinwagen", "Kompaktklasse", "Mittelklasse", "SUV", "Cabrio"], "mwKategorie")}
-        ${selectField("mietwagen.getriebe", "Getriebe", ["egal", "Automatik", "Schaltung"], "getriebe")}
-      </div>
-      <div class="row">
-        ${selectField("mietwagen.versicherung", "Versicherung", ["Vollkasko ohne Selbstbeteiligung", "Vollkasko mit Selbstbeteiligung"], "mwVersicherung")}
-        ${selectField("mietwagen.uebernahme", "Übernahme", ["Flughafen", "am Hotel / im Ort", "egal"], "uebernahme")}
-      </div>`}`;
-
-    const buchung = `
-      ${selectField("buchung.storno", "Stornierung", [["bevorzugt", "kostenlos stornierbar bevorzugt"], ["egal", "egal – günstigster Preis"]], "storno")}
-      ${selectField("buchung.art", "Buchungsart", [["vergleichen", "Pauschalreise und Einzelbuchung vergleichen"], ["pauschal", "Pauschalreise"], ["einzeln", "Einzelbausteine"]], "buchungsart")}
-      <details class="info"><summary>Pauschalreise oder Einzelbausteine?</summary>${INFO_PAUSCHAL}</details>
-      <p class="small muted">Einreisebestimmungen und ein Hinweis zu Reiseversicherungen erscheinen automatisch bei den Angeboten.</p>`;
-
     const nMuss = Object.values(p.muss).filter(Boolean).length;
+    const hatPrefs = S.prefs && S.prefs[p.reiseart];
     html += `<h2>Details zur Reise</h2>
-      <p class="muted">Alle Werte sind vorbelegt – öffnen Sie nur die Bereiche, die Sie ändern möchten.
+      <p class="muted">Alle Werte sind vorbelegt${hatPrefs ? ` – mit Ihren Präferenzen für „${esc(ARTEN[p.reiseart].titel)}“` : ""}. Ändern Sie nur, was nicht passt.
       Mit <strong>„muss“</strong> wird ein Merkmal zum Ausschlusskriterium, sonst wird es nur bevorzugt.</p>
       ${nMuss > 4 ? `<div class="notice small">Sie haben ${nMuss} Muss-Kriterien gewählt. Je mehr harte Kriterien, desto weniger Angebote findet die Suche.</div>` : ""}
-      ${block("rahmen", "Rahmen", "Abreise, Verkehrsmittel, Budget", rahmen)}
-      ${block("hotel", "Hotel & Lage", "Art, Bewertung, Größe, Lage, Zimmer", hotel)}
-      ${block("ausstattung", "Ausstattung & Verpflegung", "Pool, WLAN, Verpflegung, Ernährung", ausstattung)}
-      ${p.verkehrsmittel !== "Auto" || true ? block("anreise", "Anreise", fliegt(p) ? "Umstiege, Abflugzeit, Gepäck, Transfer" : "Verbindung, Transfer", anreise) : ""}
-      ${block("mietwagen", "Mietwagen & Mobilität", "Bedarf, Kategorie, Versicherung", mietwagen)}
-      ${block("buchung", "Buchung & Absicherung", "Stornierung, Pauschalreise", buchung)}
-      <div class="btns"><button class="btn ghost" data-action="back">Zurück</button><button class="btn" data-action="next">Weiter</button></div>`;
+      ${prefTabs(p, "profile", S.tab3, DETAIL_TABS, "tab3")}
+      <div class="btns"><button class="btn ghost" data-action="back">Zurück</button>
+        <button class="btn secondary" data-action="profile-to-prefs">Als Präferenz speichern</button>
+        <button class="btn" data-action="next">Weiter</button></div>`;
   }
 
   if (st === 4) {
     html += `<h2>Stil &amp; Interessen</h2>
-      <label class="field"><span>Reisestil ${dflt}</span></label>${chipGroup("stil", INTERESSEN)}
-      ${selectField("tempo", "Tempo", [["ruhig", "ruhig – max. 1 Programmpunkt pro Tag"], ["moderat", "moderat – 1–2 Programmpunkte pro Tag"], ["aktiv", "aktiv – 2–3 Programmpunkte pro Tag"]])}`;
-    if (p.reiseart === "paar") {
-      html += `<h3 style="margin-top:18px">Interessen beider Partner</h3>
-        <p class="small muted">Optional. Damit beide auf ihre Kosten kommen – bei unterschiedlichen Interessen plant die App auch getrennte Halbtage.</p>
-        <div class="row">
-          <label class="field"><span>Name Partner/in 1</span><input type="text" data-bind="paar.nameA" value="${esc(p.paar.nameA)}" placeholder="optional"></label>
-          <label class="field"><span>Name Partner/in 2</span><input type="text" data-bind="paar.nameB" value="${esc(p.paar.nameB)}" placeholder="optional"></label>
-        </div>
-        <label class="field"><span>Besonders wichtig für Partner/in 1</span></label>${chipGroup("paar.interessenA", INTERESSEN)}
-        <label class="field"><span>Besonders wichtig für Partner/in 2</span></label>${chipGroup("paar.interessenB", INTERESSEN)}`;
-    }
-    if (p.reiseart === "allein_gruppe") {
-      html += `<h3 style="margin-top:18px">Anschluss an andere</h3>
-        <label class="field"><span>Gewünschte Formate ${dflt}</span></label>${chipGroup("gruppe.formate", GRUPPENFORMATE)}
-        <label class="field"><span>Bevorzugte Altersgruppe der Mitreisenden</span><small>optional, z. B. „50+“ oder „gemischt“</small><input type="text" data-bind="gruppe.alter" value="${esc(p.gruppe.alter)}"></label>`;
-    }
-    html += `<label class="field"><span>Weitere Wünsche oder Einschränkungen</span>
-        <small>z. B. barrierearm, vegetarisch, kein Mietwagen, Meerblick, Hund dabei</small>
+      <div data-scope="profile">${tabStil(p)}</div>
+      <label class="field"><span>Weitere Wünsche oder Einschränkungen für diese Reise</span>
+        <small>z. B. barrierearm, Hund dabei, Geburtstag am 3. Tag</small>
         <textarea data-bind="wuensche">${esc(p.wuensche)}</textarea></label>
       <div class="btns"><button class="btn ghost" data-action="back">Zurück</button><button class="btn" data-action="next">Weiter</button></div>`;
   }
@@ -480,16 +548,32 @@ function viewWizard() {
     const n = nightsOf(p.start, p.ende);
     const s = settings();
     html += `<h2>Zusammenfassung</h2>
-      <dl class="summary-list">
-        <dt>Reiseart</dt><dd>${esc(ARTEN[p.reiseart].titel)}</dd>
-        <dt>Ziel</dt><dd><strong>${esc(p.ziel)}</strong></dd>
-        <dt>Zeitraum</dt><dd>${fmtDate(p.start)} – ${fmtDate(p.ende)} (${n} Nächte${p.flexTage ? `, ± ${p.flexTage} Tage` : ""})</dd>
-        <dt>Abreise</dt><dd>${esc(p.abreiseOrt)} · ${esc(p.verkehrsmittel)}</dd>
-        <dt>Budget p. P.</dt><dd>${euro(p.budgetMin)} – ${euro(p.budgetMax)}</dd>
-        <dt>Unterkunft</dt><dd>${esc(p.unterkunft)}${+p.sterne ? `, ca. ${p.sterne} ★` : ""}, ${esc(p.verpflegung)}</dd>
-        <dt>Stil</dt><dd>${esc((p.stil || []).join(", ") || "–")} · Tempo ${esc(p.tempo)}</dd>
-        ${p.reiseart === "allein_gruppe" ? `<dt>Anschluss</dt><dd>${esc(p.gruppe.formate.join(", ") || "–")}</dd>` : ""}
-        ${p.wuensche ? `<dt>Wünsche</dt><dd>${esc(p.wuensche)}</dd>` : ""}
+      <p class="small muted">Tippen Sie auf eine Zeile, um sie zu ändern.</p>
+      <dl class="summary-list clickable">
+        <dt data-action="jump" data-jump="s1">Reiseart</dt><dd data-action="jump" data-jump="s1">${esc(ARTEN[p.reiseart].titel)}</dd>
+        <dt data-action="jump" data-jump="s2">Ziel</dt><dd data-action="jump" data-jump="s2"><strong>${esc(p.ziel)}</strong></dd>
+        <dt data-action="jump" data-jump="s2">Zeitraum</dt><dd data-action="jump" data-jump="s2">${fmtDate(p.start)} – ${fmtDate(p.ende)} (${n} Nächte${p.flexTage ? `, ± ${p.flexTage} Tage` : ""})</dd>
+        <dt data-action="jump" data-jump="rahmen">Abreise</dt><dd data-action="jump" data-jump="rahmen">${esc(p.abreiseOrt)} · ${esc(p.verkehrsmittel)}</dd>
+        <dt data-action="jump" data-jump="rahmen">Budget p. P.</dt><dd data-action="jump" data-jump="rahmen">${euro(p.budgetMin)} – ${euro(p.budgetMax)}</dd>
+        <dt data-action="jump" data-jump="hotel">Unterkunft</dt><dd data-action="jump" data-jump="hotel">${summaryLine([
+          ["unterkunft", p.unterkunft], ["sterne", +p.sterne ? `ca. ${p.sterne} ★` : ""],
+          ["bewertung", +p.hotel.bewertungMin ? `Bewertung ab ${String(p.hotel.bewertungMin).replace(".", ",")}` : ""],
+          ["groesse", p.hotel.groesse !== "egal" ? p.hotel.groesse : ""],
+          ["adultsOnly", p.reiseart === "paar" && p.hotel.adultsOnly === "ja" ? "Erwachsenenhotel" : ""]])}</dd>
+        <dt data-action="jump" data-jump="hotel">Lage</dt><dd data-action="jump" data-jump="hotel">${summaryLine([["lage", p.hotel.lage !== "egal" ? p.hotel.lage : "egal"], ["entfernung", p.hotel.entfernung !== "egal" ? p.hotel.entfernung : ""], ["zimmer", p.hotel.zimmer.join(", ")]])}</dd>
+        <dt data-action="jump" data-jump="ausstattung">Ausstattung</dt><dd data-action="jump" data-jump="ausstattung">${summaryLine([["ausstattung", p.hotel.ausstattung.join(", ") || "–"], ["verpflegung", p.verpflegung], ["ernaehrung", p.ernaehrung]])}</dd>
+        ${fliegt(p) ? `<dt data-action="jump" data-jump="anreise">Flug</dt><dd data-action="jump" data-jump="anreise">${summaryLine([["stopps", { direkt: "nur Direktflug", max1: "max. 1 Umstieg", egal: "Umstiege egal" }[p.flug.stopps]],
+          ["abflug", p.flug.abflugNichtVor !== "egal" ? `nicht vor ${p.flug.abflugNichtVor} Uhr` : ""],
+          ["gepaeck", p.flug.gepaeck === "inklusive" ? "Aufgabegepäck" : "Handgepäck"], ["klasse", p.flug.klasse]])}</dd>` : ""}
+        ${bahnt(p) ? `<dt data-action="jump" data-jump="anreise">Bahn</dt><dd data-action="jump" data-jump="anreise">${summaryLine([["bahnklasse", p.bahn.klasse], ["umstiege", +p.bahn.maxUmstiege === 9 ? "" : +p.bahn.maxUmstiege === 0 ? "nur direkt" : `max. ${p.bahn.maxUmstiege} Umstiege`]])}</dd>` : ""}
+        <dt data-action="jump" data-jump="mietwagen">Vor Ort</dt><dd data-action="jump" data-jump="mietwagen">${summaryLine([["transfer", p.transfer === "gewünscht" ? "Transfer" : "Transfer selbst"],
+          ["", { sinnvoll: "Mietwagen wenn sinnvoll", immer: "Mietwagen", nie: "kein Mietwagen" }[p.mietwagen.bedarf]],
+          ...(p.mietwagen.bedarf === "nie" ? [] : [["mwKategorie", p.mietwagen.kategorie], ["getriebe", p.mietwagen.getriebe !== "egal" ? p.mietwagen.getriebe : ""], ["mwVersicherung", p.mietwagen.versicherung]])])}</dd>
+        <dt data-action="jump" data-jump="buchung">Buchung</dt><dd data-action="jump" data-jump="buchung">${summaryLine([["storno", p.buchung.storno === "bevorzugt" ? "kostenlos stornierbar" : ""],
+          ["buchungsart", { vergleichen: "Pauschal & einzeln vergleichen", pauschal: "Pauschalreise", einzeln: "Einzelbausteine" }[p.buchung.art]]])}</dd>
+        <dt data-action="jump" data-jump="s4">Stil</dt><dd data-action="jump" data-jump="s4">${esc((p.stil || []).join(", ") || "–")} · Tempo ${esc(p.tempo)}</dd>
+        ${p.reiseart === "allein_gruppe" ? `<dt data-action="jump" data-jump="s4">Anschluss</dt><dd data-action="jump" data-jump="s4">${esc(p.gruppe.formate.join(", ") || "–")}</dd>` : ""}
+        ${p.wuensche ? `<dt data-action="jump" data-jump="s4">Wünsche</dt><dd data-action="jump" data-jump="s4">${esc(p.wuensche)}</dd>` : ""}
       </dl>
       <div class="notice small">Die App recherchiert live im Web. Preise sind <strong>Richtwerte</strong> aus Suchergebnissen – verbindlich ist erst das Angebot auf der Buchungsseite.</div>
       ${!s.url ? `<div class="notice error small">Noch keine Verbindung eingerichtet. <a href="#" data-action="go" data-view="settings">Zu den Einstellungen</a></div>` : ""}
@@ -509,6 +593,11 @@ function viewWizard() {
   return html;
 }
 
+/** Zeile für die Zusammenfassung; Muss-Kriterien werden hervorgehoben */
+function summaryLine(items) {
+  return items.filter(([, v]) => v).map(([k, v]) => S.profile.muss[k] ? `<strong>${esc(v)}</strong> <span class="badge warn">muss</span>` : esc(v)).join(" · ") || "–";
+}
+
 function validateStep2() {
   const p = S.profile;
   if (!p.ziel.trim()) return "Bitte ein Ziel eingeben.";
@@ -526,21 +615,47 @@ function validateStep3() {
 }
 
 /* ---------------- Angebote ---------------- */
+function stoppsText(n) {
+  if (n === 0 || n === "0") return "Direktflug";
+  if (+n === 1) return "1 Umstieg";
+  if (+n > 1) return `${n} Umstiege`;
+  return "";
+}
+const CHECK_ICON = { "erfüllt": "✓", "nicht erfüllt": "✗", "unklar": "?" };
+const CHECK_CLASS = { "erfüllt": "ok", "nicht erfüllt": "warn", "unklar": "" };
+
 function offerCard(a) {
-  const u = a.unterkunft || {}, an = a.anreise || {}, pr = a.preis || {};
+  const u = a.unterkunft || {}, an = a.anreise || {}, pr = a.preis || {}, mw = a.mietwagen || {}, bu = a.buchung || {};
+  const bw = u.bewertung || {};
   const preis = [euro(pr.proPersonVon), euro(pr.proPersonBis)].filter(Boolean).join(" – ");
   const overBudget = pr.imBudget === false || (+pr.proPersonVon > +S.profile.budgetMax);
+  const checks = Array.isArray(a.kriterienCheck) ? a.kriterienCheck : [];
+  const nOk = checks.filter((c) => c.status === "erfüllt").length;
+  const mussFehlt = checks.some((c) => c.muss && c.status === "nicht erfüllt");
+  const bewertung = bw.wert ? `Bewertung ${String(bw.wert).replace(".", ",")}/${bw.skala || 10}${bw.quelle ? ` (${esc(bw.quelle)}${bw.anzahl ? `, ${esc(bw.anzahl)}` : ""})` : ""}` : "";
+  const anreiseInfo = [stoppsText(an.stopps), an.abflugzeiten, an.gepaeck, an.transfer && "Transfer: " + an.transfer].filter(Boolean);
+
   return `<article class="card">
     <div class="offer-head"><span class="num">${esc(a.id)}</span>
       <div><h3>${esc(a.titel)}</h3><p class="muted small" style="margin:0">${esc(a.ort)}${a.charakter ? ` · ${esc(a.charakter)}` : ""}</p></div></div>
     <p>${esc(a.kurzbeschreibung)}</p>
     ${a.passtWeil ? `<p><strong>Passt, weil:</strong> ${esc(a.passtWeil)}</p>` : ""}
+    ${mussFehlt ? `<div class="notice error small">Mindestens ein Muss-Kriterium ist laut Recherche nicht erfüllt – Details im Kriterien-Check.</div>` : ""}
     <dl class="facts">
-      <dt>Unterkunft</dt><dd><strong>${esc(u.name)}</strong>${unverified(u)}<br><span class="small muted">${esc([u.art, +u.sterne ? u.sterne + " ★" : "", u.lage].filter(Boolean).join(" · "))}</span></dd>
-      <dt>Anreise</dt><dd>${esc(an.verkehrsmittel)}${an.dauer ? ` · ${esc(an.dauer)}` : ""}<br><span class="small muted">${esc(an.details)}${an.hinweis ? ` – ${esc(an.hinweis)}` : ""}</span></dd>
+      <dt>Unterkunft</dt><dd><strong>${esc(u.name)}</strong>${unverified(u)}${u.adultsOnly ? `<span class="badge ok">nur Erwachsene</span>` : ""}
+        <br><span class="small muted">${esc([u.art, +u.sterne ? u.sterne + " ★" : "", u.lage, u.entfernung].filter(Boolean).join(" · "))}</span>
+        ${bewertung ? `<br><span class="small">${bewertung}</span>` : `<br><span class="small muted">Bewertung: keine Quelle gefunden</span>`}</dd>
+      ${u.verpflegung || (u.ausstattung || []).length ? `<dt>Ausstattung</dt><dd class="small">${esc([u.verpflegung, ...(u.ausstattung || [])].filter(Boolean).join(" · "))}</dd>` : ""}
+      <dt>Anreise</dt><dd>${esc(an.verkehrsmittel)}${an.dauer ? ` · ${esc(an.dauer)}` : ""}
+        <br><span class="small muted">${esc(an.details)}${an.hinweis ? ` – ${esc(an.hinweis)}` : ""}</span>
+        ${anreiseInfo.length ? `<br><span class="small">${esc(anreiseInfo.join(" · "))}</span>` : ""}</dd>
+      ${mw.begruendung || mw.richtpreis ? `<dt>Mietwagen</dt><dd class="small">${mw.empfohlen ? "empfohlen" : "nicht nötig"}${mw.begruendung ? ` – ${esc(mw.begruendung)}` : ""}${mw.richtpreis ? `<br><span class="muted">${esc(mw.richtpreis)}</span>` : ""}</dd>` : ""}
+      ${bu.art || bu.storno ? `<dt>Buchung</dt><dd class="small">${esc([bu.art, bu.anbieter].filter(Boolean).join(" · "))}${bu.storno ? `<br><span class="muted">Storno: ${esc(bu.storno)}</span>` : ""}</dd>` : ""}
       <dt>Richtpreis p. P.</dt><dd><strong>${preis || "k. A."}</strong>${overBudget ? `<span class="badge warn">über Budget</span>` : `<span class="badge ok">im Budget</span>`}
         <br><span class="small muted">${esc(pr.enthalten || "")}${pr.quelle ? ` · Quelle: ${esc(pr.quelle)}` : ""}</span></dd>
     </dl>
+    ${checks.length ? `<details><summary>Kriterien-Check: ${nOk} von ${checks.length} erfüllt</summary><ul class="check-list small">${checks.map((c) =>
+      `<li><span class="badge ${CHECK_CLASS[c.status] || ""}">${CHECK_ICON[c.status] || "?"}</span> ${esc(c.kriterium)}${c.muss ? " <strong>(muss)</strong>" : ""}${c.hinweis ? ` <span class="muted">– ${esc(c.hinweis)}</span>` : ""}</li>`).join("")}</ul></details>` : ""}
     ${(a.highlights || []).length ? `<ul class="tight">${a.highlights.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
     ${(a.nachteile || []).length ? `<details><summary>Ehrliche Nachteile</summary><ul class="tight">${a.nachteile.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}
     <div class="links">${link(u.url, "Unterkunft")}${(a.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== u.url).map((l) => link(l.url, l.label)).join("")}</div>
@@ -557,6 +672,14 @@ function viewOffers() {
       ${(o.hinweiseAllgemein || []).length ? `<div class="notice small"><strong>Gut zu wissen:</strong><ul class="tight">${o.hinweiseAllgemein.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></div>` : ""}
       <div class="btns no-print"><button class="btn ghost" data-action="edit">Parameter ändern</button><button class="btn secondary" data-action="more">5 andere Angebote</button></div>
     </div>
+    <details class="card"><summary>Vor der Buchung: Einreise, Pauschalreise, Versicherung</summary>
+      ${o.einreise && (o.einreise.dokumente || o.einreise.hinweis) ? `<h4 class="sub">Einreise (für deutsche Staatsangehörige)</h4>
+        <p class="small">${esc(o.einreise.dokumente || "")}${o.einreise.hinweis ? ` ${esc(o.einreise.hinweis)}` : ""}</p>
+        <p class="small muted">Bei anderer Staatsangehörigkeit gelten ggf. andere Regeln. Kurz vor Abreise erneut prüfen.</p>
+        <div class="links">${link(o.einreise.url, "Quelle")}</div>` : `<p class="small muted">Einreisebestimmungen bitte beim Auswärtigen Amt prüfen.</p>`}
+      <h4 class="sub">Pauschalreise oder Einzelbausteine</h4>${INFO_PAUSCHAL}
+      <h4 class="sub">Reiseversicherung</h4><p class="small">${INFO_VERSICHERUNG}</p>
+    </details>
     ${o.angebote.map(offerCard).join("")}
     ${sourcesBlock(o.quellen)}`;
 }
@@ -732,6 +855,13 @@ function viewTrip() {
     <div class="btns no-print"><button class="btn ghost" data-action="go" data-view="trips">Alle Reisen</button><button class="btn danger" data-action="delete-trip">Reise löschen</button></div>`;
 }
 
+function markPrefDirty() {
+  if (S.prefDirty) return;
+  S.prefDirty = true;
+  const hint = document.querySelector("#app > p.small.muted");
+  if (hint && !hint.querySelector("strong")) hint.insertAdjacentHTML("beforeend", ` · <strong style="color:var(--warn)">Ungespeicherte Änderungen</strong>`);
+}
+
 let saveTimer = null;
 function saveTripSoon() {
   clearTimeout(saveTimer);
@@ -752,7 +882,7 @@ function tipContext(tr) {
     `Unterkunft: ${(o.unterkunft || {}).name || "unbekannt"} (${(o.unterkunft || {}).lage || ""})`,
     `Zeitraum: ${p.start} bis ${p.ende}`,
     `Interessen: ${(p.stil || []).join(", ")}`,
-    `Mobilität: ${p.mobilitaet}`,
+    `Mobilität: ${p.mietwagen && p.mietwagen.bedarf === "nie" ? "kein Mietwagen – ÖPNV, zu Fuß, Taxi" : "Mietwagen möglich"}`,
     p.wuensche ? `Wünsche: ${p.wuensche}` : "",
     today ? `Heutiger Plan: ${today.vormittag} / ${today.nachmittag} / ${today.abend}` : ""
   ].filter(Boolean).join("\n");
@@ -777,6 +907,51 @@ async function askTip(question) {
   }
   S.tripTab = "tipp";
   render();
+}
+
+/* ---------------- Präferenzen ---------------- */
+const TRIP_KEYS = ["ziel", "start", "ende", "flexTage", "wuensche", "reiseart", "_prefsFor"];
+function prefsData(obj) {
+  const d = clone(obj);
+  TRIP_KEYS.forEach((k) => delete d[k]);
+  delete d._updated;
+  d.v = DEFAULTS.v;
+  return d;
+}
+function prefsFor(art) {
+  const saved = S.prefs && S.prefs[art];
+  return mergeDefaults({ ...(saved ? clone(saved) : {}), v: DEFAULTS.v, reiseart: art });
+}
+async function loadPrefs() {
+  if (!settings().url) { S.prefs = {}; return; }
+  try { S.prefs = (await api("/api/prefs")).prefs || {}; }
+  catch (e) { S.prefs = {}; S.prefsError = e.message; }
+}
+/** Präferenzen der Reiseart in die laufende Planung übernehmen; Ziel, Zeitraum und Wünsche bleiben */
+function applyPrefs(art) {
+  const keep = {};
+  ["ziel", "start", "ende", "flexTage", "wuensche"].forEach((k) => (keep[k] = S.profile[k]));
+  S.profile = { ...prefsFor(art), ...keep, reiseart: art, _prefsFor: art };
+  saveProfile();
+}
+
+function viewPrefs() {
+  if (S.prefs === null) {
+    loadPrefs().then(() => { if (S.view === "prefs") render(); });
+    return `<div class="card loader"><div class="spinner"></div><p class="muted">Präferenzen werden geladen …</p></div>`;
+  }
+  const art = S.prefArt;
+  if (!S.prefDraft || S.prefDraftArt !== art) { S.prefDraft = prefsFor(art); S.prefDraftArt = art; S.prefDirty = false; }
+  const saved = S.prefs[art];
+  return `<h2>Präferenzen</h2>
+    <p class="muted small">Ihre Standardwerte je Reiseart. Jede neue Planung dieser Reiseart startet damit – ändern lässt sich trotzdem jede Reise einzeln.</p>
+    ${S.prefsError ? `<div class="notice error small">${esc(S.prefsError)}</div>` : ""}
+    <div class="chips">${Object.entries(ARTEN).map(([k, a]) => `<button type="button" class="chip ${k === art ? "on" : ""}" data-action="pref-art" data-value="${k}">${a.ico} ${esc(a.titel)}</button>`).join("")}</div>
+    <p class="small muted">${saved ? `Gespeichert am ${esc(new Date(saved._updated).toLocaleString("de-DE"))}` : "Noch nicht gespeichert – es gelten die Vorschlagswerte."}
+      ${S.prefDirty ? ` · <strong style="color:var(--warn)">Ungespeicherte Änderungen</strong>` : ""}</p>
+    <div class="card">${prefTabs(S.prefDraft, "prefs", S.prefTab, PREF_TABS, "ptab")}</div>
+    <div class="btns"><button class="btn" data-action="save-prefs">Präferenzen speichern</button>
+      <button class="btn ghost" data-action="reset-prefs">Auf Vorschlagswerte zurücksetzen</button></div>`;
 }
 
 /* ---------------- Einstellungen ---------------- */
@@ -842,19 +1017,76 @@ document.addEventListener("click", async (ev) => {
 
   switch (a) {
     case "go":
+      if (S.view === "prefs" && el.dataset.view !== "prefs" && S.prefDirty &&
+          !confirm("Ungespeicherte Änderungen an den Präferenzen verwerfen?")) break;
+      if (S.view === "prefs" && el.dataset.view !== "prefs") { S.prefDraft = null; S.prefDirty = false; }
       S.view = el.dataset.view; S.error = null;
       if (S.view === "trips") S.trips = null;
       if (S.view === "wizard" && S.step === 5 && !p.ziel) S.step = 1;
       render(); window.scrollTo(0, 0); break;
-    case "art":
-      p.reiseart = el.dataset.value; saveProfile(); render(); break;
+    case "art": {
+      const art = el.dataset.value;
+      if (S.prefs === null) await loadPrefs();
+      if (S.profile._prefsFor !== art) applyPrefs(art); else { S.profile.reiseart = art; saveProfile(); }
+      render(); break;
+    }
+    case "apply-prefs":
+      if (S.prefs === null) await loadPrefs();
+      applyPrefs(S.profile.reiseart); toast("Präferenzen übernommen."); render(); break;
+    case "jump": {
+      const j = el.dataset.jump;
+      if (j.startsWith("s")) S.step = +j.slice(1); else { S.step = 3; S.tab3 = j; }
+      render(); window.scrollTo(0, 0); break;
+    }
+    case "tab3": S.tab3 = el.dataset.tab; render(); break;
+    case "ptab": S.prefTab = el.dataset.tab; render(); break;
+    case "pref-art":
+      if (S.prefDirty && !confirm("Ungespeicherte Änderungen verwerfen?")) break;
+      S.prefArt = el.dataset.value; S.prefDraft = null; render(); break;
+    case "save-prefs": {
+      const art = S.prefArt;
+      try {
+        const data = prefsData(S.prefDraft);
+        const r = await api("/api/prefs/" + art, { method: "PUT", body: { data } });
+        S.prefs[art] = { ...data, _updated: r.updated_at }; S.prefDirty = false;
+        toast(`Präferenzen für „${ARTEN[art].titel}“ gespeichert.`);
+      } catch (e) { S.error = e.message; }
+      render(); break;
+    }
+    case "reset-prefs": {
+      const art = S.prefArt;
+      if (!confirm(`Präferenzen für „${ARTEN[art].titel}“ auf die Vorschlagswerte zurücksetzen?`)) break;
+      try {
+        await api("/api/prefs/" + art, { method: "DELETE" });
+        delete S.prefs[art]; S.prefDraft = null; toast("Zurückgesetzt.");
+      } catch (e) { S.error = e.message; }
+      render(); break;
+    }
+    case "profile-to-prefs": {
+      const art = p.reiseart;
+      if (S.prefs === null) await loadPrefs();
+      if (S.prefs[art] && !confirm(`Gespeicherte Präferenzen für „${ARTEN[art].titel}“ mit diesen Werten überschreiben?`)) break;
+      try {
+        const data = prefsData(p);
+        const r = await api("/api/prefs/" + art, { method: "PUT", body: { data } });
+        S.prefs[art] = { ...data, _updated: r.updated_at };
+        toast("Als Präferenz gespeichert.");
+      } catch (e) { toast(e.message); }
+      break;
+    }
     case "chip": {
-      const arr = getPath(p, el.dataset.path) || [];
+      const obj = scopeObj(el);
+      const arr = getPath(obj, el.dataset.path) || [];
       const v = el.dataset.value;
-      setPath(p, el.dataset.path, arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-      saveProfile(); el.classList.toggle("on"); break;
+      setPath(obj, el.dataset.path, arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+      if (obj === S.profile) saveProfile(); else markPrefDirty();
+      el.classList.toggle("on"); break;
     }
     case "next": {
+      if (S.step === 1 && S.profile._prefsFor !== S.profile.reiseart) {
+        if (S.prefs === null) await loadPrefs();
+        applyPrefs(S.profile.reiseart);
+      }
       const err = S.step === 2 ? validateStep2() : S.step === 3 ? validateStep3() : null;
       if (err) { toast(err); break; }
       S.step = Math.min(5, S.step + 1); render(); window.scrollTo(0, 0); break;
@@ -916,6 +1148,7 @@ document.addEventListener("click", async (ev) => {
       try {
         const h = await api("/api/health");
         await api("/api/trips");
+        await loadPrefs();
         out.innerHTML = `<span style="color:var(--ok)">✓ Verbunden – Modell ${esc(h.model)}, Datenbank ${h.db ? "aktiv" : "fehlt"}.</span>`;
       } catch (e) { out.innerHTML = `<span style="color:var(--danger)">✗ ${esc(e.message)}</span>`; }
       break;
@@ -932,8 +1165,14 @@ document.addEventListener("input", (ev) => {
   const path = el.dataset.bind;
   if (!path) return;
   let v = el.value;
-  if (el.type === "number" || ["sterne", "flexTage"].includes(path)) v = v === "" ? "" : Number(v);
-  setPath(S.profile, path, v);
+  if (el.type === "number" || ["sterne", "flexTage", "hotel.bewertungMin", "bahn.maxUmstiege"].includes(path)) v = v === "" ? "" : Number(v);
+  const obj = scopeObj(el);
+  setPath(obj, path, v);
+  if (obj !== S.profile) {
+    markPrefDirty();
+    if (el.tagName === "SELECT" && ["verkehrsmittel", "mietwagen.bedarf"].includes(path)) render();
+    return;
+  }
 
   if (path === "start" && v) {
     const ende = document.querySelector('[data-bind="ende"]');
@@ -946,7 +1185,9 @@ document.addEventListener("input", (ev) => {
     if (el2) el2.textContent = n > 0 ? `${n} Nächte` : "Die Abreise muss nach der Anreise liegen.";
   }
   saveProfile();
+  if (["verkehrsmittel", "mietwagen.bedarf"].includes(path)) render();
 });
+
 
 document.addEventListener("change", (ev) => {
   const el = ev.target;
@@ -957,11 +1198,18 @@ document.addEventListener("change", (ev) => {
     saveTripSoon();
   }
   if (el.dataset.action === "trip-day") { S.tripDay = Number(el.value); render(); }
+  if (el.dataset.must) {
+    const obj = scopeObj(el);
+    obj.muss = obj.muss || {};
+    if (el.checked) obj.muss[el.dataset.must] = true; else delete obj.muss[el.dataset.must];
+    if (obj === S.profile) saveProfile(); else markPrefDirty();
+  }
   if (el.tagName === "SELECT" && el.dataset.bind) el.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
 // Erststart: ohne Verbindung direkt zu den Einstellungen
 if (!settings().url) S.view = "settings";
+else loadPrefs();
 render();
 </script>
 </body>
