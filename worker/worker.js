@@ -547,6 +547,8 @@ function fmtDate(iso) {
   return `${d}.${m}.${y}`;
 }
 
+const eigen = (p) => p && p.verkehrsmittel === "Eigenanreise";
+
 function profileText(p) {
   const n = nights(p.start, p.ende);
   const lines = [
@@ -557,8 +559,12 @@ function profileText(p) {
       (p.flexTage ? `, Termin flexibel um ±${p.flexTage} Tage` : ", Termin fest"),
     `Reisende: ${p.reiseart === "paar" ? "2 Erwachsene (Ehepaar)" : "1 Erwachsene Person"}`,
     `Abreise ab: ${p.abreiseOrt}`,
-    `Anreise: ${p.verkehrsmittel === "flexibel" ? "flexibel – vergleiche Bahn, Auto und Flug (Flughäfen FRA, STR, FKB) und empfiehl das Sinnvollste" : p.verkehrsmittel}`,
-    `Budget pro Person inkl. An- und Abreise und Unterkunft: ${p.budgetMin}–${p.budgetMax} €`,
+    `Anreise: ${eigen(p)
+      ? "EIGENANREISE – der Kunde organisiert An- und Abreise selbst. Plane und kalkuliere KEINE Anreise, schlage keine Flüge, Bahnverbindungen oder Pauschalreisen vor."
+      : p.verkehrsmittel === "flexibel" ? "flexibel – vergleiche Bahn, Auto und Flug (Flughäfen FRA, STR, FKB) und empfiehl das Sinnvollste" : p.verkehrsmittel}`,
+    eigen(p)
+      ? `Budget pro Person nur für Unterkunft und Verpflegung (ohne Anreise): ${p.budgetMin}–${p.budgetMax} €`
+      : `Budget pro Person inkl. An- und Abreise und Unterkunft: ${p.budgetMin}–${p.budgetMax} €`,
     `Reisestil/Interessen: ${(p.stil || []).join(", ") || "keine Angabe"}`,
     `Tempo: ${p.tempo === "ruhig" ? "ruhig (max. 1 Programmpunkt pro Tag)" : p.tempo === "aktiv" ? "aktiv (2–3 Programmpunkte pro Tag)" : "moderat (1–2 Programmpunkte pro Tag)"}`,
     "",
@@ -592,7 +598,7 @@ function criteriaLines(p) {
   };
   const vm = p.verkehrsmittel || "flexibel";
   const fliegt = vm === "flexibel" || vm === "Flug";
-  const bahnt = vm === "flexibel" || vm === "Bahn";
+  const bahnt = vm === "flexibel" || vm === "Bahn";   // bei "Eigenanreise" beides false
 
   out.push("Kriterien Unterkunft:");
   add("unterkunft", `Unterkunftsart: ${p.unterkunft}`, p.unterkunft === "egal – bestes Angebot" ? "" : p.unterkunft);
@@ -632,7 +638,7 @@ function criteriaLines(p) {
 
   out.push("Buchung:");
   add("storno", "Kostenlos stornierbar", bu.storno === "bevorzugt" ? "ja" : "");
-  add("buchungsart", `Buchungsart: ${bu.art === "pauschal" ? "Pauschalreise" : "Einzelbausteine"}`, bu.art === "vergleichen" ? "" : bu.art);
+  if (!eigen(p)) add("buchungsart", `Buchungsart: ${bu.art === "pauschal" ? "Pauschalreise" : "Einzelbausteine"}`, bu.art === "vergleichen" ? "" : bu.art);
   return out;
 }
 
@@ -662,11 +668,15 @@ async function handleOffers(body, env) {
 Aufgabe: Stelle GENAU 5 deutlich unterschiedliche Reiseangebote zusammen.
 - Unterscheide sie spürbar (z. B. Teilregion, Art der Unterkunft, Charakter, Anreise, Preisniveau innerhalb des Budgets).
 - Ist das Ziel eine größere Region oder ein Land, verteile die Angebote auf passende Orte. Ist es ein einzelner Ort, variiere Unterkunft, Lage und Schwerpunkt.
-- Nenne für jedes Angebot eine konkrete, real existierende Unterkunft mit URL (Hotelwebsite oder Buchungsportal) sowie eine realistische Anreise ab Brühl.
-- Kalkuliere einen Richtpreis pro Person für den gesamten Zeitraum. Liegt ein Angebot über dem Budget, kennzeichne das.
+${eigen(p)
+  ? `- Nenne für jedes Angebot eine konkrete, real existierende Unterkunft mit URL (Hotelwebsite oder Buchungsportal).
+- Eigenanreise: Fülle "anreise" nur als kurzen Hinweis – "verkehrsmittel": "Eigenanreise", in "details" die nächstgelegenen Flughäfen/Bahnhöfe bzw. Parkmöglichkeit am Hotel, "dauer" leer, keine Kosten.
+- Kalkuliere einen Richtpreis pro Person NUR für Unterkunft und Verpflegung im gesamten Zeitraum (ohne Anreise). Liegt ein Angebot über dem Budget, kennzeichne das.`
+  : `- Nenne für jedes Angebot eine konkrete, real existierende Unterkunft mit URL (Hotelwebsite oder Buchungsportal) sowie eine realistische Anreise ab Brühl.
+- Kalkuliere einen Richtpreis pro Person für den gesamten Zeitraum. Liegt ein Angebot über dem Budget, kennzeichne das.`}
 - Prüfe für jedes Angebot die Kriterien oben und fasse das Ergebnis im "kriterienCheck" zusammen (nur Kriterien, die nicht "egal" sind).
 - Gib Gästebewertungen nur mit Quelle (Portal) an; ohne Quelle "wert": null.
-${p.buchung && p.buchung.art === "einzeln" ? "" : `- Mindestens eines der Angebote soll – sofern für Ziel und Zeitraum verfügbar – eine Pauschalreise eines Reiseveranstalters sein (z. B. Flug + Hotel), mit Link zur Angebotsseite des Veranstalters. Gibt es keine, sag es in "hinweiseAllgemein".
+${eigen(p) || (p.buchung && p.buchung.art === "einzeln") ? "" : `- Mindestens eines der Angebote soll – sofern für Ziel und Zeitraum verfügbar – eine Pauschalreise eines Reiseveranstalters sein (z. B. Flug + Hotel), mit Link zur Angebotsseite des Veranstalters. Gibt es keine, sag es in "hinweiseAllgemein".
 `}- Recherchiere einmal die Einreisebestimmungen für deutsche Staatsangehörige (bevorzugt Auswärtiges Amt) mit Quelle.
 - Halte die Recherche schlank: Dies ist eine Vorauswahl, der ausführliche Reiseführer folgt später.
 
@@ -742,7 +752,7 @@ Aufgabe: Erstelle einen persönlichen Reiseführer für genau dieses Angebot und
 - 3–6 Tagesausflüge in die Umgebung (Ziel, Entfernung/Fahrzeit, organisiert mit Anbieter und Preis oder selbst organisiert mit Anleitung).
 - 5–8 besonders schöne Orte (Aussichtspunkte, Gassen, Strände, Gärten) mit bester Tageszeit.
 - 8–12 Restaurants in gemischtem Preisniveau mit Küche, Lage, Reservierungshinweis und für wen sie besonders geeignet sind.
-- Einen Tagesplan für ${tage} Tage (Anreisetag bis Abreisetag) mit Schlechtwetter-Alternative je Tag.
+- Einen Tagesplan für ${tage} Tage (Anreisetag bis Abreisetag) mit Schlechtwetter-Alternative je Tag.${eigen(p) ? " Die Anreise organisiert der Kunde selbst – plane am ersten und letzten Tag nur leichte Programmpunkte ohne feste Uhrzeiten." : ""}
 - Praktisches: Wetter im Zeitraum, Mobilität vor Ort, Bezahlen/Trinkgeld, Sicherheit, Feiertage/Events im Zeitraum.
 
 JSON-Schema:

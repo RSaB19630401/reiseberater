@@ -385,18 +385,19 @@ function chipField(path, label, options, mustKey = "", hint = "") {
   return `<div class="field">${fieldHead(label, mustKey, hint)}${chipGroup(path, options)}</div>`;
 }
 const fliegt = (p) => p.verkehrsmittel === "flexibel" || p.verkehrsmittel === "Flug";
+const eigen = (p) => p.verkehrsmittel === "Eigenanreise";
 const bahnt = (p) => p.verkehrsmittel === "flexibel" || p.verkehrsmittel === "Bahn";
 
 /* ---------------- Reiter (Schritt 3 und Präferenzen) ---------------- */
 function tabRahmen(p) {
   return `
     <label class="field"><span>Abreiseort ${dflt}</span><input type="text" data-bind="abreiseOrt" value="${esc(p.abreiseOrt)}"></label>
-    ${selectField("verkehrsmittel", "Anreise", [["flexibel", "flexibel – Bahn, Auto oder Flug, je nach Ziel"], ["Flug", "Flug (FRA, STR, FKB)"], ["Bahn", "Bahn"], ["Auto", "Auto"]])}
+    ${selectField("verkehrsmittel", "Anreise", [["flexibel", "flexibel – Bahn, Auto oder Flug, je nach Ziel"], ["Flug", "Flug (FRA, STR, FKB)"], ["Bahn", "Bahn"], ["Auto", "Auto (Fahrt wird eingeplant)"], ["Eigenanreise", "Eigenanreise – nur Unterkunft, Anreise organisiere ich selbst"]])}
     <div class="row">
       <label class="field"><span>Budget p. P. von (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMin" value="${esc(p.budgetMin)}"></label>
       <label class="field"><span>bis (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMax" value="${esc(p.budgetMax)}"></label>
     </div>
-    <p class="small muted">Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum.</p>`;
+    <p class="small muted">${eigen(p) ? "Nur für Unterkunft und Verpflegung, für den gesamten Zeitraum – die Anreise ist nicht enthalten." : "Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum."}</p>`;
 }
 function tabHotel(p) {
   return `
@@ -422,6 +423,7 @@ function tabAusstattung(p) {
 }
 function tabAnreise(p) {
   let html = "";
+  if (eigen(p)) html += `<p class="small muted">Eigenanreise: Die App plant und kalkuliert keine Anreise. Bei den Angeboten erscheint nur ein Hinweis auf den nächsten Flughafen, Bahnhof oder Parkmöglichkeiten.</p>`;
   if (p.verkehrsmittel === "Auto") html += `<p class="small muted">Anreise mit dem eigenen Auto – Parkplatz am Hotel ggf. im Reiter „Ausstattung“ wählen.</p>`;
   if (fliegt(p)) html += `<h4 class="sub">Flug</h4>
     ${selectField("flug.stopps", "Umstiege", [["direkt", "nur Direktflug"], ["max1", "max. 1 Umstieg, Direktflug bevorzugt"], ["egal", "egal"]], "stopps")}
@@ -450,10 +452,11 @@ function tabMietwagen(p) {
       ${selectField("mietwagen.uebernahme", "Übernahme", ["Flughafen", "am Hotel / im Ort", "egal"], "uebernahme")}
     </div>`}`;
 }
-function tabBuchung() {
+function tabBuchung(p) {
   return `
     ${selectField("buchung.storno", "Stornierung", [["bevorzugt", "kostenlos stornierbar bevorzugt"], ["egal", "egal – günstigster Preis"]], "storno")}
-    ${selectField("buchung.art", "Buchungsart", [["vergleichen", "Pauschalreise und Einzelbuchung vergleichen"], ["pauschal", "Pauschalreise"], ["einzeln", "Einzelbausteine"]], "buchungsart")}
+    ${eigen(p) ? `<p class="small muted">Bei Eigenanreise entfallen Pauschalreisen, weil diese eine gebuchte Anreise voraussetzen.</p>`
+      : selectField("buchung.art", "Buchungsart", [["vergleichen", "Pauschalreise und Einzelbuchung vergleichen"], ["pauschal", "Pauschalreise"], ["einzeln", "Einzelbausteine"]], "buchungsart")}
     <details class="info"><summary>Pauschalreise oder Einzelbausteine?</summary>${INFO_PAUSCHAL}</details>
     <p class="small muted">Einreisebestimmungen und ein Hinweis zu Reiseversicherungen erscheinen automatisch bei den Angeboten.</p>`;
 }
@@ -561,8 +564,8 @@ function viewWizard() {
         <dt data-action="jump" data-jump="s1">Reiseart</dt><dd data-action="jump" data-jump="s1">${esc(ARTEN[p.reiseart].titel)}</dd>
         <dt data-action="jump" data-jump="s2">Ziel</dt><dd data-action="jump" data-jump="s2"><strong>${esc(p.ziel)}</strong></dd>
         <dt data-action="jump" data-jump="s2">Zeitraum</dt><dd data-action="jump" data-jump="s2">${fmtDate(p.start)} – ${fmtDate(p.ende)} (${n} Nächte${p.flexTage ? `, ± ${p.flexTage} Tage` : ""})</dd>
-        <dt data-action="jump" data-jump="rahmen">Abreise</dt><dd data-action="jump" data-jump="rahmen">${esc(p.abreiseOrt)} · ${esc(p.verkehrsmittel)}</dd>
-        <dt data-action="jump" data-jump="rahmen">Budget p. P.</dt><dd data-action="jump" data-jump="rahmen">${euro(p.budgetMin)} – ${euro(p.budgetMax)}</dd>
+        <dt data-action="jump" data-jump="rahmen">Abreise</dt><dd data-action="jump" data-jump="rahmen">${eigen(p) ? "Eigenanreise – nur Unterkunft" : `${esc(p.abreiseOrt)} · ${esc(p.verkehrsmittel)}`}</dd>
+        <dt data-action="jump" data-jump="rahmen">Budget p. P.</dt><dd data-action="jump" data-jump="rahmen">${euro(p.budgetMin)} – ${euro(p.budgetMax)}${eigen(p) ? " (ohne Anreise)" : ""}</dd>
         <dt data-action="jump" data-jump="hotel">Unterkunft</dt><dd data-action="jump" data-jump="hotel">${summaryLine([
           ["unterkunft", p.unterkunft], ["sterne", +p.sterne ? `ca. ${p.sterne} ★` : ""],
           ["bewertung", +p.hotel.bewertungMin ? `Bewertung ab ${String(p.hotel.bewertungMin).replace(".", ",")}` : ""],
@@ -578,7 +581,7 @@ function viewWizard() {
           ["", { sinnvoll: "Mietwagen wenn sinnvoll", immer: "Mietwagen", nie: "kein Mietwagen" }[p.mietwagen.bedarf]],
           ...(p.mietwagen.bedarf === "nie" ? [] : [["mwKategorie", p.mietwagen.kategorie], ["getriebe", p.mietwagen.getriebe !== "egal" ? p.mietwagen.getriebe : ""], ["mwVersicherung", p.mietwagen.versicherung]])])}</dd>
         <dt data-action="jump" data-jump="buchung">Buchung</dt><dd data-action="jump" data-jump="buchung">${summaryLine([["storno", p.buchung.storno === "bevorzugt" ? "kostenlos stornierbar" : ""],
-          ["buchungsart", { vergleichen: "Pauschal & einzeln vergleichen", pauschal: "Pauschalreise", einzeln: "Einzelbausteine" }[p.buchung.art]]])}</dd>
+          ["buchungsart", eigen(p) ? "" : { vergleichen: "Pauschal & einzeln vergleichen", pauschal: "Pauschalreise", einzeln: "Einzelbausteine" }[p.buchung.art]]])}</dd>
         <dt data-action="jump" data-jump="s4">Stil</dt><dd data-action="jump" data-jump="s4">${esc((p.stil || []).join(", ") || "–")} · Tempo ${esc(p.tempo)}</dd>
         ${p.reiseart === "allein_gruppe" ? `<dt data-action="jump" data-jump="s4">Anschluss</dt><dd data-action="jump" data-jump="s4">${esc(p.gruppe.formate.join(", ") || "–")}</dd>` : ""}
         ${p.wuensche ? `<dt data-action="jump" data-jump="s4">Wünsche</dt><dd data-action="jump" data-jump="s4">${esc(p.wuensche)}</dd>` : ""}
@@ -659,7 +662,7 @@ function offerCard(a) {
         ${anreiseInfo.length ? `<br><span class="small">${esc(anreiseInfo.join(" · "))}</span>` : ""}</dd>
       ${mw.begruendung || mw.richtpreis ? `<dt>Mietwagen</dt><dd class="small">${mw.empfohlen ? "empfohlen" : "nicht nötig"}${mw.begruendung ? ` – ${esc(mw.begruendung)}` : ""}${mw.richtpreis ? `<br><span class="muted">${esc(mw.richtpreis)}</span>` : ""}</dd>` : ""}
       ${bu.art || bu.storno ? `<dt>Buchung</dt><dd class="small">${esc([bu.art, bu.anbieter].filter(Boolean).join(" · "))}${bu.storno ? `<br><span class="muted">Storno: ${esc(bu.storno)}</span>` : ""}</dd>` : ""}
-      <dt>Richtpreis p. P.</dt><dd><strong>${preis || "k. A."}</strong>${overBudget ? `<span class="badge warn">über Budget</span>` : `<span class="badge ok">im Budget</span>`}
+      <dt>Richtpreis p. P.${eigen(S.profile) ? " (ohne Anreise)" : ""}</dt><dd><strong>${preis || "k. A."}</strong>${overBudget ? `<span class="badge warn">über Budget</span>` : `<span class="badge ok">im Budget</span>`}
         <br><span class="small muted">${esc(pr.enthalten || "")}${pr.quelle ? ` · Quelle: ${esc(pr.quelle)}` : ""}</span></dd>
     </dl>
     ${checks.length ? `<details><summary>Kriterien-Check: ${nOk} von ${checks.length} erfüllt</summary><ul class="check-list small">${checks.map((c) =>
