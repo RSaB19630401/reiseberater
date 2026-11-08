@@ -1,0 +1,16 @@
+# Konfiguration für den Cloudflare Worker "reiseberater".
+# Wird bei jeder Änderung im Ordner worker/ automatisch über GitHub Actions bereitgestellt.
+# Geheimnisse (ANTHROPIC_API_KEY, APP_TOKEN) stehen NICHT hier, sondern nur in Cloudflare.
+name = "reiseberater"
+main = "worker/worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://rsab19630401.github.io"
+
+# Datenbank-Bindung – steht fest in der Konfiguration und geht nicht mehr verloren
+[[d1_databases]]
+binding = "DB"
+database_name = "reiseberater"
+database_id = "79665c28-0d88-4ab7-877a-c8c0ca246c67"
