@@ -81,6 +81,7 @@ ul.tight{margin:6px 0;padding-left:20px}
 details{margin:8px 0}
 summary{cursor:pointer;font-weight:600;color:var(--accent)}
 .links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.links a.ersatz{border-style:dashed;color:var(--muted)}
 .links a{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:.9rem}
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:10px 0;scrollbar-width:thin}
 .tabs button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;min-height:40px}
@@ -246,7 +247,14 @@ const saveProfile = () => store.set("rb_profile", S.profile);
 const $app = document.getElementById("app");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const safeUrl = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch { return ""; } };
-const link = (u, label) => { const s = safeUrl(u); return s ? `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(label || "Website")} ↗</a>` : ""; };
+/** Link-Knopf; nimmt eine Adresse oder ein Objekt mit url (+ url_ersatz, falls der Worker den Link durch eine Suche ersetzt hat) */
+const link = (u, label) => {
+  const obj = u && typeof u === "object" ? u : { url: u };
+  const s = safeUrl(obj.url);
+  if (!s) return "";
+  if (obj.url_ersatz) return `<a class="ersatz" href="${esc(s)}" target="_blank" rel="noopener noreferrer" title="Der ursprüngliche Link war nicht erreichbar – hier eine Websuche">🔎 ${esc(label || "Website")} suchen</a>`;
+  return `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(label || "Website")} ↗</a>`;
+};
 const euro = (n) => Number.isFinite(+n) && +n > 0 ? new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(+n) : "";
 const todayIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -658,8 +666,8 @@ function offerCard(a) {
       `<li><span class="badge ${CHECK_CLASS[c.status] || ""}">${CHECK_ICON[c.status] || "?"}</span> ${esc(c.kriterium)}${c.muss ? " <strong>(muss)</strong>" : ""}${c.hinweis ? ` <span class="muted">– ${esc(c.hinweis)}</span>` : ""}</li>`).join("")}</ul></details>` : ""}
     ${(a.highlights || []).length ? `<ul class="tight">${a.highlights.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
     ${(a.nachteile || []).length ? `<details><summary>Ehrliche Nachteile</summary><ul class="tight">${a.nachteile.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}
-    <div class="links">${link(u.url, "Unterkunft")}${(a.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== u.url).map((l) => link(l.url, l.label)).join("")}</div>
-    <div class="btns"><button class="btn full" data-action="choose" data-id="${esc(a.id)}">Dieses Angebot wählen &amp; Reiseführer erstellen</button></div>
+    <div class="links">${link(u, "Unterkunft")}${(a.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== u.url).map((l) => link(l, l.label)).join("")}</div>
+    <div class="btns"><button class="btn full" data-action="choose" data-id="${esc(a.id)}">Angebot wählen → Reiseführer mit Sehenswürdigkeiten, Ausflügen &amp; Restaurants</button></div>
   </article>`;
 }
 
@@ -670,13 +678,16 @@ function viewOffers() {
   return `<div class="card"><h2>${o.angebote.length} Angebote für ${esc(p.ziel)}</h2>
       <p class="muted small">${fmtDate(p.start)} – ${fmtDate(p.ende)} · ${esc(ARTEN[p.reiseart].titel)} · ${o.suchen ?? "?"} Websuchen</p>
       ${(o.hinweiseAllgemein || []).length ? `<div class="notice small"><strong>Gut zu wissen:</strong><ul class="tight">${o.hinweiseAllgemein.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></div>` : ""}
+      <div class="notice small"><strong>So geht es weiter:</strong> Wählen Sie ein Angebot. Danach erstellt die App Ihren persönlichen <strong>Reiseführer</strong>
+        mit Sehenswürdigkeiten, buchbaren Aktivitäten, Ausflügen, schönen Orten, Restaurants und einem Tagesplan (Dauer ca. 1–3 Minuten).</div>
+      ${o.links && o.links.ersetzt ? `<p class="small muted">${o.links.ersetzt} Link(s) waren nicht erreichbar und wurden durch eine Websuche (🔎) ersetzt.</p>` : ""}
       <div class="btns no-print"><button class="btn ghost" data-action="edit">Parameter ändern</button><button class="btn secondary" data-action="more">5 andere Angebote</button></div>
     </div>
     <details class="card"><summary>Vor der Buchung: Einreise, Pauschalreise, Versicherung</summary>
       ${o.einreise && (o.einreise.dokumente || o.einreise.hinweis) ? `<h4 class="sub">Einreise (für deutsche Staatsangehörige)</h4>
         <p class="small">${esc(o.einreise.dokumente || "")}${o.einreise.hinweis ? ` ${esc(o.einreise.hinweis)}` : ""}</p>
         <p class="small muted">Bei anderer Staatsangehörigkeit gelten ggf. andere Regeln. Kurz vor Abreise erneut prüfen.</p>
-        <div class="links">${link(o.einreise.url, "Quelle")}</div>` : `<p class="small muted">Einreisebestimmungen bitte beim Auswärtigen Amt prüfen.</p>`}
+        <div class="links">${link(o.einreise, "Quelle")}</div>` : `<p class="small muted">Einreisebestimmungen bitte beim Auswärtigen Amt prüfen.</p>`}
       <h4 class="sub">Pauschalreise oder Einzelbausteine</h4>${INFO_PAUSCHAL}
       <h4 class="sub">Reiseversicherung</h4><p class="small">${INFO_VERSICHERUNG}</p>
     </details>
@@ -692,7 +703,7 @@ function sourcesBlock(list) {
 
 /* ---------------- Reiseführer ---------------- */
 const GUIDE_TABS = [
-  ["ueberblick", "Überblick"], ["sehen", "Sehenswertes"], ["akt", "Aktivitäten"], ["orte", "Schöne Orte"],
+  ["ueberblick", "Überblick"], ["sehen", "Sehenswertes"], ["akt", "Aktivitäten"], ["ausfluege", "Ausflüge"], ["orte", "Schöne Orte"],
   ["essen", "Restaurants"], ["plan", "Tagesplan"], ["quellen", "Quellen"]
 ];
 
@@ -706,7 +717,7 @@ function guideSection(tab, g, offer, opts = {}) {
   if (tab === "ueberblick") {
     const pr = g.praktisches || {};
     return `<p>${esc(g.ueberblick)}</p>
-      ${offer ? `<div class="notice small"><strong>${esc(offer.titel)}</strong> · ${esc((offer.unterkunft || {}).name)}<div class="links">${link((offer.unterkunft || {}).url, "Unterkunft buchen")}${(offer.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== (offer.unterkunft || {}).url).map((l) => link(l.url, l.label)).join("")}</div></div>` : ""}
+      ${offer ? `<div class="notice small"><strong>${esc(offer.titel)}</strong> · ${esc((offer.unterkunft || {}).name)}<div class="links">${link(offer.unterkunft || {}, "Unterkunft buchen")}${(offer.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== (offer.unterkunft || {}).url).map((l) => link(l, l.label)).join("")}</div></div>` : ""}
       <dl class="facts">
         ${pr.wetter ? `<dt>Wetter</dt><dd>${esc(pr.wetter)}</dd>` : ""}
         ${pr.mobilitaet ? `<dt>Unterwegs</dt><dd>${esc(pr.mobilitaet)}</dd>` : ""}
@@ -719,7 +730,7 @@ function guideSection(tab, g, offer, opts = {}) {
     return (g.sehenswuerdigkeiten || []).map((s) => checkWrap("s:" + s.name, done, `
       <h4>${esc(s.name)}${unverified(s)}</h4><p>${esc(s.beschreibung)}</p>
       <p class="small muted">${esc([s.dauer && "Dauer: " + s.dauer, s.eintritt && "Eintritt: " + s.eintritt, s.oeffnung].filter(Boolean).join(" · "))}</p>
-      ${s.tipp ? `<p class="small"><strong>Tipp:</strong> ${esc(s.tipp)}</p>` : ""}<div class="links">${link(s.url)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
+      ${s.tipp ? `<p class="small"><strong>Tipp:</strong> ${esc(s.tipp)}</p>` : ""}<div class="links">${link(s)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
   }
   if (tab === "akt") {
     const a = g.aktivitaeten || {};
@@ -727,18 +738,27 @@ function guideSection(tab, g, offer, opts = {}) {
       <h4>${esc(x.name)}${x.inGruppe ? `<span class="badge ok">in der Gruppe</span>` : ""}${unverified(x)}</h4>
       <p>${esc(x.beschreibung)}</p>
       <p class="small muted">${esc([x.anbieter && "Anbieter: " + x.anbieter, x.preis, x.dauer].filter(Boolean).join(" · "))}</p>
-      ${x.buchung ? `<p class="small"><strong>Buchung:</strong> ${esc(x.buchung)}</p>` : ""}<div class="links">${link(x.url, "Anbieter")}</div>`, ck)).join("");
+      ${x.buchung ? `<p class="small"><strong>Buchung:</strong> ${esc(x.buchung)}</p>` : ""}<div class="links">${link(x, "Anbieter")}</div>`, ck)).join("");
     const self = (a.selbstorganisiert || []).map((x) => checkWrap("a:" + x.name, done, `
       <h4>${esc(x.name)}</h4><p>${esc(x.beschreibung)}</p>
       ${x.soGehts ? `<p class="small"><strong>So geht's:</strong> ${esc(x.soGehts)}</p>` : ""}
-      <p class="small muted">${esc([x.kosten, x.dauer].filter(Boolean).join(" · "))}</p><div class="links">${link(x.url)}</div>`, ck)).join("");
+      <p class="small muted">${esc([x.kosten, x.dauer].filter(Boolean).join(" · "))}</p><div class="links">${link(x)}</div>`, ck)).join("");
     return `<h3>Organisiert</h3>${org || `<p class="muted">Keine Einträge.</p>`}<h3 style="margin-top:18px">Selbst organisiert</h3>${self || `<p class="muted">Keine Einträge.</p>`}`;
+  }
+  if (tab === "ausfluege") {
+    return (g.ausfluege || []).map((x) => checkWrap("x:" + x.name, done, `
+      <h4>${esc(x.name)}${x.art === "organisiert" ? `<span class="badge ok">organisiert</span>` : x.art ? `<span class="badge">selbst organisiert</span>` : ""}</h4>
+      <p class="small muted">${esc([x.ziel, x.entfernung, x.dauer].filter(Boolean).join(" · "))}</p>
+      <p>${esc(x.beschreibung)}</p>
+      ${x.anbieter || x.preis ? `<p class="small">${esc([x.anbieter && "Anbieter: " + x.anbieter, x.preis].filter(Boolean).join(" · "))}</p>` : ""}
+      ${x.soGehts ? `<p class="small"><strong>So geht's:</strong> ${esc(x.soGehts)}</p>` : ""}<div class="links">${link(x, x.art === "organisiert" ? "Anbieter" : "Website")}</div>`, ck)).join("") ||
+      `<p class="muted">Keine Ausflüge im Reiseführer. Ältere Reiseführer enthalten diesen Bereich noch nicht.</p>`;
   }
   if (tab === "orte") {
     return (g.schoeneOrte || []).map((o) => checkWrap("o:" + o.name, done, `
       <h4>${esc(o.name)}</h4><p>${esc(o.warum)}</p>
       ${o.besteZeit ? `<p class="small muted">Beste Zeit: ${esc(o.besteZeit)}</p>` : ""}
-      ${o.tipp ? `<p class="small"><strong>Tipp:</strong> ${esc(o.tipp)}</p>` : ""}<div class="links">${link(o.url)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
+      ${o.tipp ? `<p class="small"><strong>Tipp:</strong> ${esc(o.tipp)}</p>` : ""}<div class="links">${link(o)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
   }
   if (tab === "essen") {
     return (g.restaurants || []).map((r) => checkWrap("r:" + r.name, done, `
@@ -746,7 +766,7 @@ function guideSection(tab, g, offer, opts = {}) {
       <p class="small muted">${esc([r.kueche, r.lage].filter(Boolean).join(" · "))}</p>
       <p>${esc(r.warum)}</p>
       ${r.geeignetFuer ? `<p class="small"><strong>Besonders für:</strong> ${esc(r.geeignetFuer)}</p>` : ""}
-      ${r.reservierung ? `<p class="small"><strong>Reservierung:</strong> ${esc(r.reservierung)}</p>` : ""}<div class="links">${link(r.url)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
+      ${r.reservierung ? `<p class="small"><strong>Reservierung:</strong> ${esc(r.reservierung)}</p>` : ""}<div class="links">${link(r)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
   }
   if (tab === "plan") {
     return (g.tagesplan || []).map(dayBlock).join("") || `<p class="muted">Kein Tagesplan.</p>`;
@@ -810,7 +830,7 @@ function viewTrips() {
 }
 
 /* ---------------- Reise-Modus ---------------- */
-const TRIP_TABS = [["heute", "Heute"], ["tipp", "Spontan-Tipp"], ["plan", "Tagesplan"], ["sehen", "Sehenswertes"], ["akt", "Aktivitäten"], ["orte", "Orte"], ["essen", "Restaurants"], ["notizen", "Notizen"], ["ueberblick", "Infos"]];
+const TRIP_TABS = [["heute", "Heute"], ["tipp", "Spontan-Tipp"], ["plan", "Tagesplan"], ["sehen", "Sehenswertes"], ["akt", "Aktivitäten"], ["ausfluege", "Ausflüge"], ["orte", "Orte"], ["essen", "Restaurants"], ["notizen", "Notizen"], ["ueberblick", "Infos"]];
 
 function tripDayIndex(trip) {
   const p = trip.data.profile, t = todayIso();
@@ -843,7 +863,7 @@ function viewTrip() {
       <label class="check small"><input type="checkbox" id="tip-loc"> <span>Standort mitsenden (auf ca. 100 m gerundet, nur für diese Frage)</span></label>
       <div class="btns"><button class="btn" data-action="ask-tip">Tipp holen</button></div>
       ${tips.map((t) => `<div class="tip"><p class="small muted">${esc(new Date(t.zeit).toLocaleString("de-DE"))} · ${esc(t.frage)}</p><p>${esc(t.antwort)}</p>
-        ${(t.vorschlaege || []).map((v) => `<div class="item"><h4>${esc(v.name)} ${v.entfernung ? `<span class="small muted">${esc(v.entfernung)}</span>` : ""}</h4><p class="small">${esc(v.warum)}${v.hinweis ? " – " + esc(v.hinweis) : ""}</p><div class="links">${link(v.url)}</div></div>`).join("")}</div>`).join("")}`;
+        ${(t.vorschlaege || []).map((v) => `<div class="item"><h4>${esc(v.name)} ${v.entfernung ? `<span class="small muted">${esc(v.entfernung)}</span>` : ""}</h4><p class="small">${esc(v.warum)}${v.hinweis ? " – " + esc(v.hinweis) : ""}</p><div class="links">${link(v)}</div></div>`).join("")}</div>`).join("")}`;
   } else if (tab === "notizen") {
     body = `<label class="field"><span>Notizen zur Reise</span><small>Buchungsnummern, Treffpunkte, Erinnerungen – wird automatisch gespeichert.</small>
       <textarea id="trip-notes" style="min-height:200px">${esc(d.notizen || "")}</textarea></label>`;

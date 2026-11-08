@@ -28,7 +28,12 @@ const DEFAULT_MODEL = "claude-sonnet-5-5";
 const MAX_BODY_BYTES = 1_000_000;
 
 // Obergrenzen für Websuchen pro Anfrage (Kostenbremse)
-const SEARCH_LIMITS = { offers: 10, guide: 10, tip: 3 };
+const SEARCH_LIMITS = { offers: 10, guide: 12, tip: 3 };
+
+// Link-Prüfung: höchstens so viele Links pro Anfrage aktiv abrufen
+// (Cloudflare begrenzt die Zahl ausgehender Anfragen je Aufruf)
+const MAX_LINK_CHECKS = 25;
+const LINK_TIMEOUT_MS = 8000;
 
 export default {
   async fetch(request, env, ctx) {
@@ -390,6 +395,103 @@ async function researchAsJson(env, { system, user, maxUses, maxTokens }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Link-Prüfung                                                        */
+/* ------------------------------------------------------------------ */
+
+function normUrl(u) {
+  try {
+    const x = new URL(u);
+    return (x.hostname.replace(/^www\./, "") + x.pathname.replace(/\/+$/, "")).toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function searchLink(query) {
+  return "https://www.google.com/search?q=" + encodeURIComponent(query.replace(/\s+/g, " ").trim());
+}
+
+/** Ruft eine Adresse ab. true = erreichbar (oder nur für Bots gesperrt), false = nicht vorhanden/defekt. */
+async function linkReachable(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), LINK_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Reiseberater-Linkpruefung)", Accept: "text/html,*/*" },
+    });
+    try { await res.body?.cancel(); } catch { /* egal */ }
+    if (res.status === 404 || res.status === 410 || res.status >= 500) return false;
+    return true; // 2xx/3xx sowie 401/403/405/429 (Bot-Sperren) gelten als vorhanden
+  } catch {
+    return false; // DNS-Fehler, Zeitüberschreitung, Verbindungsabbruch
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Prüft alle "url"-Felder im Ergebnis:
+ * - Adressen aus den Suchergebnissen bleiben unverändert.
+ * - Andere werden abgerufen (max. MAX_LINK_CHECKS); nicht erreichbare oder ungültige
+ *   werden durch eine Suche nach Name und Ort ersetzt und mit "url_ersatz": true markiert.
+ */
+async function verifyLinks(data, sources, baseCtx) {
+  const known = new Set((sources || []).map((s) => normUrl(s.url)).filter(Boolean));
+  const jobs = [];
+
+  const visit = (node, ctx) => {
+    if (Array.isArray(node)) { node.forEach((n) => visit(n, ctx)); return; }
+    if (!node || typeof node !== "object") return;
+    const own = {
+      name: (node.unterkunft && node.unterkunft.name) || node.name || node.titel || ctx.name || "",
+      ort: node.ort || ctx.ort || "",
+    };
+    if ("url" in node && typeof node.url === "string" && node.url.trim()) {
+      const label = node.label && !/unterkunft|hotel/i.test(node.label) ? node.label : "";
+      const query = "dokumente" in node
+        ? `Einreisebestimmungen ${own.ort} Auswärtiges Amt`
+        : [label, own.name, own.ort].filter(Boolean).join(" ");
+      jobs.push({ node, query });
+    }
+    for (const [k, v] of Object.entries(node)) if (k !== "url" && v && typeof v === "object") visit(v, own);
+  };
+  visit(data, { name: "", ort: baseCtx.ort || "" });
+
+  const replace = (job) => {
+    job.node.url = searchLink(job.query || job.node.url);
+    job.node.url_ersatz = true;
+  };
+
+  const toCheck = new Map(); // url -> jobs
+  let ersetzt = 0, ausQuelle = 0;
+  for (const job of jobs) {
+    const u = job.node.url.trim();
+    let valid = false;
+    try { valid = /^https?:$/.test(new URL(u).protocol); } catch { /* ungültig */ }
+    if (!valid) { replace(job); ersetzt++; continue; }
+    if (known.has(normUrl(u))) { ausQuelle++; continue; }
+    if (!toCheck.has(u)) toCheck.set(u, []);
+    toCheck.get(u).push(job);
+  }
+
+  const urls = [...toCheck.keys()].slice(0, MAX_LINK_CHECKS);
+  const results = new Map();
+  for (let i = 0; i < urls.length; i += 8) {
+    const batch = urls.slice(i, i + 8);
+    const ok = await Promise.all(batch.map(linkReachable));
+    batch.forEach((u, j) => results.set(u, ok[j]));
+  }
+  for (const [u, list] of toCheck) {
+    if (results.get(u) === false) { list.forEach(replace); ersetzt += list.length; }
+  }
+
+  return { gesamt: jobs.length, ausQuellen: ausQuelle, geprueft: urls.length, ersetzt, ungeprueft: Math.max(0, toCheck.size - urls.length) };
+}
+
+/* ------------------------------------------------------------------ */
 /* Prompts                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -404,6 +506,8 @@ Deine Kunden wohnen in Brühl (Baden), PLZ 68782, nahe Mannheim/Schwetzingen.
 Arbeitsregeln:
 1. Nutze die Websuche, um Unterkünfte, Preise, Verbindungen, Öffnungszeiten, Restaurants und Anbieter zu prüfen.
 2. Erfinde nichts. Nenne nur Unterkünfte, Restaurants, Anbieter und Orte, die du in Suchergebnissen gefunden hast, jeweils mit URL.
+   Übernimm URLs exakt aus den Suchergebnissen und baue keine Adressen selbst zusammen. Bevorzuge die offizielle Website;
+   bei Portalen die allgemeine Seite des Hotels bzw. Angebots – keine Suchergebnislisten und keine Links mit Datums-, Such- oder Sitzungsparametern.
    Konntest du etwas nicht prüfen, setze "verifiziert": false und schreibe das ehrlich dazu.
 3. Preise sind Richtwerte in Euro aus Suchergebnissen. Gib an, woher sie stammen und dass sie nicht verbindlich sind.
 4. Berücksichtige den konkreten Reisezeitraum: Saison, Wetter, Öffnungszeiten, Feiertage, Veranstaltungen, Schließungen in der Nebensaison.
@@ -562,7 +666,8 @@ Aufgabe: Stelle GENAU 5 deutlich unterschiedliche Reiseangebote zusammen.
 - Kalkuliere einen Richtpreis pro Person für den gesamten Zeitraum. Liegt ein Angebot über dem Budget, kennzeichne das.
 - Prüfe für jedes Angebot die Kriterien oben und fasse das Ergebnis im "kriterienCheck" zusammen (nur Kriterien, die nicht "egal" sind).
 - Gib Gästebewertungen nur mit Quelle (Portal) an; ohne Quelle "wert": null.
-- Recherchiere einmal die Einreisebestimmungen für deutsche Staatsangehörige (bevorzugt Auswärtiges Amt) mit Quelle.
+${p.buchung && p.buchung.art === "einzeln" ? "" : `- Mindestens eines der Angebote soll – sofern für Ziel und Zeitraum verfügbar – eine Pauschalreise eines Reiseveranstalters sein (z. B. Flug + Hotel), mit Link zur Angebotsseite des Veranstalters. Gibt es keine, sag es in "hinweiseAllgemein".
+`}- Recherchiere einmal die Einreisebestimmungen für deutsche Staatsangehörige (bevorzugt Auswärtiges Amt) mit Quelle.
 - Halte die Recherche schlank: Dies ist eine Vorauswahl, der ausführliche Reiseführer folgt später.
 
 JSON-Schema:
@@ -605,13 +710,14 @@ JSON-Schema:
     throw new Error("Es konnten keine Angebote erstellt werden. Bitte Ziel oder Zeitraum anpassen und erneut versuchen.");
   }
   data.angebote = data.angebote.map((a, i) => ({ ...a, id: i + 1 }));
+  const linkInfo = await verifyLinks(data, sources, { ort: p.ziel });
   if (data.angebote.length < 5) {
     data.hinweiseAllgemein = [
       `Es konnten nur ${data.angebote.length} passende Angebote verlässlich gefunden werden. Tipp: Ziel weiter fassen oder Zeitraum flexibler wählen.`,
       ...(data.hinweiseAllgemein || []),
     ];
   }
-  return { ...data, quellen: sources, suchen: searches, erstellt: new Date().toISOString() };
+  return { ...data, quellen: sources, suchen: searches, links: linkInfo, erstellt: new Date().toISOString() };
 }
 
 /* ------------------------------------------------------------------ */
@@ -633,6 +739,7 @@ ${JSON.stringify(body.offer, null, 2).slice(0, 8000)}
 Aufgabe: Erstelle einen persönlichen Reiseführer für genau dieses Angebot und diesen Zeitraum.
 - 8–12 wichtigste Sehenswürdigkeiten (realistische Dauer, Eintritt, Öffnungs-/Saisonhinweise für den Zeitraum, Tipp gegen Wartezeiten).
 - Aktivitäten getrennt nach "organisiert" (mit Anbieter, Preis, Buchungsweg, ob in der Gruppe) und "selbstorganisiert" (mit konkreter Anleitung), je 5–8.
+- 3–6 Tagesausflüge in die Umgebung (Ziel, Entfernung/Fahrzeit, organisiert mit Anbieter und Preis oder selbst organisiert mit Anleitung).
 - 5–8 besonders schöne Orte (Aussichtspunkte, Gassen, Strände, Gärten) mit bester Tageszeit.
 - 8–12 Restaurants in gemischtem Preisniveau mit Küche, Lage, Reservierungshinweis und für wen sie besonders geeignet sind.
 - Einen Tagesplan für ${tage} Tage (Anreisetag bis Abreisetag) mit Schlechtwetter-Alternative je Tag.
@@ -648,6 +755,7 @@ JSON-Schema:
     "organisiert": [ { "name": "", "anbieter": "", "beschreibung": "", "preis": "", "dauer": "", "inGruppe": true, "buchung": "", "url": "", "verifiziert": true } ],
     "selbstorganisiert": [ { "name": "", "beschreibung": "", "soGehts": "", "kosten": "", "dauer": "", "url": "" } ]
   },
+  "ausfluege": [ { "name": "", "ziel": "", "entfernung": "Fahrzeit", "art": "organisiert|selbst", "beschreibung": "", "anbieter": "", "preis": "", "dauer": "", "soGehts": "", "url": "" } ],
   "schoeneOrte": [ { "name": "", "warum": "", "besteZeit": "", "tipp": "", "url": "" } ],
   "restaurants": [ { "name": "", "kueche": "", "preisniveau": "€|€€|€€€|€€€€", "lage": "", "warum": "", "geeignetFuer": "", "reservierung": "", "url": "", "verifiziert": true } ],
   "tagesplan": [ { "tag": 1, "datum": "TT.MM.JJJJ", "titel": "", "vormittag": "", "nachmittag": "", "abend": "", "beiRegen": "" } ]
@@ -661,7 +769,8 @@ JSON-Schema:
     maxTokens: 32000,
   });
 
-  return { ...data, quellen: sources, suchen: searches, erstellt: new Date().toISOString() };
+  const linkInfo = await verifyLinks(data, sources, { ort: body.offer.ort || p.ziel });
+  return { ...data, quellen: sources, suchen: searches, links: linkInfo, erstellt: new Date().toISOString() };
 }
 
 /* ------------------------------------------------------------------ */
@@ -699,6 +808,7 @@ JSON-Schema:
     maxUses: SEARCH_LIMITS.tip,
     maxTokens: 4000,
   });
+  await verifyLinks(data, sources, { ort: "" });
   return { ...data, quellen: sources.slice(0, 8), frage: q, zeit: new Date().toISOString() };
 }
 
