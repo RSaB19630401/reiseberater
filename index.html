@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5f5c">
+<title>Reiseberater</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230f5f5c'/%3E%3Cpath d='M18 40l28-16-8 22-6-8-8 6z' fill='%23f4e9d8'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f7f3ec; --surface:#ffffff; --surface-2:#f1ebe1; --text:#1f2a2a; --muted:#5f6b6a;
+  --line:#e2d9cb; --accent:#0f5f5c; --accent-2:#e07a3f; --accent-ink:#ffffff;
+  --ok:#2f7d4f; --warn:#b4541a; --danger:#b3261e; --chip:#e8f1ef;
+  --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121817; --surface:#1b2322; --surface-2:#222c2b; --text:#e9eeed; --muted:#9aa8a6;
+    --line:#2f3b3a; --accent:#4fb3ac; --accent-2:#f09a62; --accent-ink:#0b1514;
+    --ok:#6cc58f; --warn:#f0a36b; --danger:#ff8a80; --chip:#24413e;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit}
+header.top{position:sticky;top:0;z-index:10;background:var(--accent);color:var(--accent-ink);padding:calc(env(safe-area-inset-top) + 10px) 16px 10px}
+header.top .bar{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:12px}
+header.top h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.2px;flex:1;cursor:pointer}
+header.top nav{display:flex;gap:4px}
+header.top nav button{background:transparent;border:0;color:inherit;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:.92rem}
+header.top nav button.active,header.top nav button:hover{background:rgba(255,255,255,.16)}
+main{max-width:880px;margin:0 auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 40px)}
+h2{font-size:1.35rem;margin:.2em 0 .4em}
+h3{font-size:1.08rem;margin:.1em 0 .3em}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin:12px 0}
+.steps{display:flex;gap:6px;margin:4px 0 14px}
+.steps span{flex:1;height:5px;border-radius:5px;background:var(--line)}
+.steps span.on{background:var(--accent)}
+label.field{display:block;margin:12px 0}
+label.field>span{display:block;font-weight:600;margin-bottom:4px}
+label.field small{display:block;color:var(--muted);font-weight:400}
+input[type=text],input[type=date],input[type=number],input[type=url],input[type=password],select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);min-height:44px}
+textarea{min-height:90px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.row{grid-template-columns:1fr}}
+.required::after{content:" *";color:var(--accent-2)}
+.default-tag{display:inline-block;font-size:.72rem;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;cursor:pointer;min-height:38px}
+.chip.on{background:var(--chip);border-color:var(--accent);color:var(--accent);font-weight:600}
+.choices{display:grid;gap:12px}
+.choice{display:flex;gap:14px;align-items:flex-start;text-align:left;border:2px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:16px;cursor:pointer;width:100%}
+.choice.on{border-color:var(--accent);background:var(--chip)}
+.choice .ico{font-size:1.8rem;line-height:1}
+.choice strong{display:block;font-size:1.05rem}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:11px 18px;border-radius:12px;cursor:pointer;font-weight:600;min-height:44px}
+.btn.secondary{background:transparent;color:var(--accent)}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--text)}
+.btn.danger{background:transparent;border-color:var(--danger);color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.full{width:100%}
+.notice{border-left:4px solid var(--accent-2);background:var(--surface-2);padding:10px 12px;border-radius:8px;margin:12px 0}
+.error{border-left-color:var(--danger)}
+.badge{display:inline-block;font-size:.74rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-left:6px;vertical-align:middle}
+.badge.warn{background:rgba(224,122,63,.15);color:var(--warn)}
+.badge.ok{background:rgba(47,125,79,.13);color:var(--ok)}
+.offer-head{display:flex;gap:12px;align-items:flex-start}
+.num{flex:none;width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700}
+dl.facts{display:grid;grid-template-columns:max-content 1fr;gap:6px 12px;margin:12px 0}
+dl.facts dt{color:var(--muted);font-size:.9rem}
+dl.facts dd{margin:0}
+@media (max-width:520px){dl.facts{grid-template-columns:1fr}dl.facts dt{margin-top:6px}}
+ul.tight{margin:6px 0;padding-left:20px}
+details{margin:8px 0}
+summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.links a{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:.9rem}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:10px 0;scrollbar-width:thin}
+.tabs button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;min-height:40px}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.item{border-top:1px solid var(--line);padding:12px 0}
+.item:first-child{border-top:0;padding-top:0}
+.item h4{margin:0 0 4px;font-size:1rem;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.item p{margin:4px 0}
+.check{display:flex;gap:10px;align-items:flex-start}
+.check input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--accent)}
+.done h4{text-decoration:line-through;color:var(--muted)}
+.day{border-left:3px solid var(--accent);padding-left:12px;margin:14px 0}
+.day h4{margin:0 0 6px}
+.day p{margin:3px 0}
+.loader{text-align:center;padding:40px 10px}
+.spinner{width:46px;height:46px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:spin 1s linear infinite;margin:0 auto 18px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.summary-list{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px}
+.summary-list dt{color:var(--muted)}
+.summary-list dd{margin:0}
+@media (max-width:520px){.summary-list{grid-template-columns:1fr}.summary-list dt{margin-top:6px}}
+.trip-row{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer}
+.tip{background:var(--surface-2);border-radius:10px;padding:12px;margin:10px 0}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:50;max-width:90vw;box-shadow:var(--shadow)}
+@media print{
+  header.top,.btns,.tabs,.no-print{display:none!important}
+  .card{box-shadow:none;border:0;padding:0}
+  .print-all [data-section]{display:block!important}
+  body{background:#fff;color:#000}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <h1 data-action="go" data-view="wizard">✈︎ Reiseberater</h1>
+    <nav>
+      <button data-action="go" data-view="wizard" id="nav-wizard">Planen</button>
+      <button data-action="go" data-view="trips" id="nav-trips">Meine Reisen</button>
+      <button data-action="go" data-view="settings" id="nav-settings" aria-label="Einstellungen">⚙︎</button>
+    </nav>
+  </div>
+</header>
+<main id="app"></main>
+
+<script>
+"use strict";
+
+/* ================================================================
+   Vorschlagswerte (nur Ziel und Zeitraum sind Pflicht)
+   ================================================================ */
+const DEFAULTS = {
+  reiseart: "paar",               // paar | allein | allein_gruppe
+  ziel: "", start: "", ende: "", flexTage: 0,
+  abreiseOrt: "Brühl (Baden), 68782",
+  verkehrsmittel: "flexibel",     // flexibel | Flug | Bahn | Auto
+  budgetMin: 500, budgetMax: 2000,
+  unterkunft: "Hotel", sterne: 4, verpflegung: "Frühstück",
+  stil: ["Kultur", "Natur"], tempo: "moderat",
+  mobilitaet: "je nach Ziel – ÖPNV oder Mietwagen",
+  paar: { nameA: "", nameB: "", interessenA: [], interessenB: [] },
+  gruppe: { formate: ["Kleingruppentouren", "Kurse", "Geführte Wanderungen"], alter: "" },
+  wuensche: ""
+};
+
+const ARTEN = {
+  paar: { ico: "💑", titel: "Urlaub als Ehepaar", text: "Doppelzimmer in ruhiger Lage, Interessen beider Partner, abends gehobene regionale Küche." },
+  allein: { ico: "🧭", titel: "Allein – ganz unabhängig", text: "Einzelzimmer möglichst ohne Zuschlag, zentral und sicher, Restaurants für Alleinreisende." },
+  allein_gruppe: { ico: "🤝", titel: "Allein – mit Anschluss", text: "Kleingruppentouren, Kurse, geführte Wanderungen und Unterkünfte mit Gemeinschaftsangeboten." }
+};
+
+const INTERESSEN = ["Kultur","Natur","Strand","Wandern","Kulinarik","Wein","Wellness","Städte","Geschichte","Kunst","Fotografie","Radfahren","Wassersport","Musik & Events","Shopping","Nachtleben"];
+const GRUPPENFORMATE = ["Kleingruppentouren","Kurse","Geführte Wanderungen","Tagesausflüge in der Gruppe","Free Walking Tours","Gemeinsame Abendessen","Reiseveranstalter für Alleinreisende"];
+
+/* ================================================================
+   Speicher (localStorage nur für Komfort; Reisen liegen in D1)
+   ================================================================ */
+const store = {
+  get(k, fallback = null) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const clone = (o) => JSON.parse(JSON.stringify(o));
+function mergeDefaults(p) {
+  const d = clone(DEFAULTS);
+  if (!p) return d;
+  return { ...d, ...p, paar: { ...d.paar, ...(p.paar || {}) }, gruppe: { ...d.gruppe, ...(p.gruppe || {}) } };
+}
+
+const S = {
+  view: "wizard",
+  step: 1,
+  profile: mergeDefaults(store.get("rb_profile")),
+  offers: store.get("rb_offers"),
+  offer: store.get("rb_offer"),
+  guide: store.get("rb_guide"),
+  guideTab: "ueberblick",
+  trips: null,
+  trip: null,          // { id, title, data }
+  tripTab: "heute",
+  tripDay: null,
+  loading: null,       // { title, msgs, started }
+  error: null
+};
+const saveProfile = () => store.set("rb_profile", S.profile);
+
+/* ================================================================
+   Hilfsfunktionen
+   ================================================================ */
+const $app = document.getElementById("app");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const safeUrl = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch { return ""; } };
+const link = (u, label) => { const s = safeUrl(u); return s ? `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(label || "Website")} ↗</a>` : ""; };
+const euro = (n) => Number.isFinite(+n) && +n > 0 ? new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(+n) : "";
+const todayIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const nightsOf = (a, b) => (a && b) ? Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 86400000) : 0;
+const fmtDate = (iso) => iso ? new Date(iso + "T12:00:00Z").toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "";
+const unverified = (o) => o && o.verifiziert === false ? `<span class="badge warn">nicht geprüft</span>` : "";
+function getPath(obj, path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj); }
+function setPath(obj, path, val) { const ks = path.split("."); const last = ks.pop(); const t = ks.reduce((o, k) => (o[k] ??= {}), obj); t[last] = val; }
+
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2800);
+}
+
+/* ================================================================
+   API
+   ================================================================ */
+const settings = () => store.get("rb_settings", { url: "", token: "" });
+let currentAbort = null;
+
+async function api(path, { method = "GET", body, signal } = {}) {
+  const s = settings();
+  if (!s.url) throw new Error("Bitte zuerst unter ⚙︎ Einstellungen die Worker-Adresse und den Zugangscode eintragen.");
+  let res;
+  try {
+    res = await fetch(s.url.replace(/\/+$/, "") + path, {
+      method, signal,
+      headers: { "Content-Type": "application/json", "X-App-Token": s.token || "" },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch (e) {
+    if (e.name === "AbortError") throw e;
+    throw new Error("Server nicht erreichbar. Bitte Internetverbindung und Worker-Adresse prüfen.");
+  }
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { throw new Error("Unerwartete Antwort vom Server (" + res.status + ")."); }
+  if (!res.ok || data.error) throw new Error(data.error || ("Fehler " + res.status));
+  return data;
+}
+
+async function runLoading(title, msgs, fn) {
+  currentAbort = new AbortController();
+  S.loading = { title, msgs, started: Date.now() };
+  S.error = null;
+  render();
+  try {
+    return await fn(currentAbort.signal);
+  } finally {
+    S.loading = null;
+    currentAbort = null;
+  }
+}
+
+/* ================================================================
+   Rendering
+   ================================================================ */
+function render() {
+  ["wizard", "trips", "settings"].forEach((v) => {
+    const el = document.getElementById("nav-" + v);
+    const active = v === S.view || (v === "wizard" && ["offers", "guide"].includes(S.view)) || (v === "trips" && S.view === "trip");
+    el.classList.toggle("active", active);
+  });
+
+  if (S.loading) { $app.innerHTML = viewLoading(); tickLoading(); return; }
+  const views = { wizard: viewWizard, offers: viewOffers, guide: viewGuide, trips: viewTrips, trip: viewTrip, settings: viewSettings };
+  $app.innerHTML = (S.error ? `<div class="notice error"><strong>Hinweis:</strong> ${esc(S.error)}</div>` : "") + (views[S.view] || viewWizard)();
+  if (S.view === "trips" && S.trips === null) loadTrips();
+}
+
+let loadingTimer = null;
+function viewLoading() {
+  const L = S.loading;
+  return `<div class="card loader">
+    <div class="spinner"></div>
+    <h2>${esc(L.title)}</h2>
+    <p id="ld-msg" class="muted">${esc(L.msgs[0])}</p>
+    <p class="small muted">Die Live-Recherche dauert meist 1–3 Minuten. <span id="ld-time"></span></p>
+    <div class="btns" style="justify-content:center"><button class="btn ghost" data-action="abort">Abbrechen</button></div>
+  </div>`;
+}
+function tickLoading() {
+  clearInterval(loadingTimer);
+  loadingTimer = setInterval(() => {
+    if (!S.loading) { clearInterval(loadingTimer); return; }
+    const sec = Math.round((Date.now() - S.loading.started) / 1000);
+    const m = document.getElementById("ld-msg"), t = document.getElementById("ld-time");
+    if (m) m.textContent = S.loading.msgs[Math.floor(sec / 12) % S.loading.msgs.length];
+    if (t) t.textContent = `(${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")})`;
+  }, 1000);
+}
+
+/* ---------------- Fragenkatalog ---------------- */
+function stepBar(n) { return `<div class="steps" aria-label="Schritt ${n} von 5">${[1,2,3,4,5].map((i) => `<span class="${i <= n ? "on" : ""}"></span>`).join("")}</div>`; }
+const dflt = `<span class="default-tag">Vorschlag</span>`;
+
+function chipGroup(path, options) {
+  const sel = getPath(S.profile, path) || [];
+  return `<div class="chips">${options.map((o) => `<button type="button" class="chip ${sel.includes(o) ? "on" : ""}" data-action="chip" data-path="${path}" data-value="${esc(o)}">${esc(o)}</button>`).join("")}</div>`;
+}
+function selectField(path, label, options, hint = "") {
+  const v = getPath(S.profile, path);
+  return `<label class="field"><span>${label} ${dflt}${hint ? `<small>${hint}</small>` : ""}</span>
+    <select data-bind="${path}">${options.map((o) => { const [val, txt] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(val)}" ${String(v) === String(val) ? "selected" : ""}>${esc(txt)}</option>`; }).join("")}</select></label>`;
+}
+
+function viewWizard() {
+  const p = S.profile, st = S.step;
+  let html = `<div class="card">${stepBar(st)}`;
+
+  if (st === 1) {
+    html += `<h2>Wie möchten Sie reisen?</h2>
+      <p class="muted">Davon hängen Unterkunft, Aktivitäten und Restaurant-Empfehlungen ab.</p>
+      <div class="choices">${Object.entries(ARTEN).map(([k, a]) => `
+        <button type="button" class="choice ${p.reiseart === k ? "on" : ""}" data-action="art" data-value="${k}">
+          <span class="ico" aria-hidden="true">${a.ico}</span><span><strong>${a.titel}</strong><span class="muted small">${a.text}</span></span>
+        </button>`).join("")}</div>
+      <div class="btns"><button class="btn" data-action="next">Weiter</button></div>`;
+  }
+
+  if (st === 2) {
+    const n = nightsOf(p.start, p.ende);
+    html += `<h2>Wohin und wann?</h2>
+      <p class="muted">Nur diese Angaben sind Pflicht – alles andere ist vorbelegt.</p>
+      <label class="field"><span class="required">Ziel oder Wunschregion</span>
+        <small>z. B. „Algarve“, „Südtirol“, „Kopenhagen“ oder „warm, Mittelmeer, wenig Trubel“</small>
+        <input type="text" data-bind="ziel" value="${esc(p.ziel)}" placeholder="Ziel eingeben" autocomplete="off"></label>
+      <div class="row">
+        <label class="field"><span class="required">Anreise</span><input type="date" data-bind="start" min="${todayIso()}" value="${esc(p.start)}"></label>
+        <label class="field"><span class="required">Abreise</span><input type="date" data-bind="ende" min="${esc(p.start || todayIso())}" value="${esc(p.ende)}"></label>
+      </div>
+      <p class="small muted" id="nights">${n > 0 ? `${n} Nächte` : "Vorschlag: 7 Nächte – das Abreisedatum wird automatisch gesetzt."}</p>
+      ${selectField("flexTage", "Flexibilität beim Termin", [[0, "fester Termin"], [2, "± 2 Tage"], [3, "± 3 Tage"], [7, "± 1 Woche"]])}
+      <div class="btns">
+        <button class="btn ghost" data-action="back">Zurück</button>
+        <button class="btn" data-action="quick">Mit Vorschlagswerten weiter</button>
+        <button class="btn secondary" data-action="next">Details anpassen</button>
+      </div>`;
+  }
+
+  if (st === 3) {
+    html += `<h2>Rahmen der Reise</h2>
+      <p class="muted">Alle Werte sind Vorschläge – ändern Sie nur, was nicht passt.</p>
+      <label class="field"><span>Abreiseort ${dflt}</span><input type="text" data-bind="abreiseOrt" value="${esc(p.abreiseOrt)}"></label>
+      ${selectField("verkehrsmittel", "Anreise", [["flexibel", "flexibel – Bahn, Auto oder Flug, je nach Ziel"], ["Flug", "Flug (FRA, STR, FKB)"], ["Bahn", "Bahn"], ["Auto", "Auto"]])}
+      <div class="row">
+        <label class="field"><span>Budget p. P. von (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMin" value="${esc(p.budgetMin)}"></label>
+        <label class="field"><span>bis (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMax" value="${esc(p.budgetMax)}"></label>
+      </div>
+      <p class="small muted">Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum.</p>
+      <div class="row">
+        ${selectField("unterkunft", "Unterkunft", ["Hotel", "Boutique-Hotel", "Ferienwohnung", "Pension / B&B", "Resort", "Agriturismo / Landgut", "egal – bestes Angebot"])}
+        ${selectField("sterne", "Kategorie", [[3, "ca. 3 Sterne"], [4, "ca. 4 Sterne"], [5, "ca. 5 Sterne"], [0, "egal"]])}
+      </div>
+      ${selectField("verpflegung", "Verpflegung", ["ohne", "Frühstück", "Halbpension", "All inclusive"])}
+      ${selectField("mobilitaet", "Mobilität vor Ort", ["je nach Ziel – ÖPNV oder Mietwagen", "nur ÖPNV / zu Fuß", "Mietwagen", "eigenes Auto"])}
+      <div class="btns"><button class="btn ghost" data-action="back">Zurück</button><button class="btn" data-action="next">Weiter</button></div>`;
+  }
+
+  if (st === 4) {
+    html += `<h2>Stil &amp; Interessen</h2>
+      <label class="field"><span>Reisestil ${dflt}</span></label>${chipGroup("stil", INTERESSEN)}
+      ${selectField("tempo", "Tempo", [["ruhig", "ruhig – max. 1 Programmpunkt pro Tag"], ["moderat", "moderat – 1–2 Programmpunkte pro Tag"], ["aktiv", "aktiv – 2–3 Programmpunkte pro Tag"]])}`;
+    if (p.reiseart === "paar") {
+      html += `<h3 style="margin-top:18px">Interessen beider Partner</h3>
+        <p class="small muted">Optional. Damit beide auf ihre Kosten kommen – bei unterschiedlichen Interessen plant die App auch getrennte Halbtage.</p>
+        <div class="row">
+          <label class="field"><span>Name Partner/in 1</span><input type="text" data-bind="paar.nameA" value="${esc(p.paar.nameA)}" placeholder="optional"></label>
+          <label class="field"><span>Name Partner/in 2</span><input type="text" data-bind="paar.nameB" value="${esc(p.paar.nameB)}" placeholder="optional"></label>
+        </div>
+        <label class="field"><span>Besonders wichtig für Partner/in 1</span></label>${chipGroup("paar.interessenA", INTERESSEN)}
+        <label class="field"><span>Besonders wichtig für Partner/in 2</span></label>${chipGroup("paar.interessenB", INTERESSEN)}`;
+    }
+    if (p.reiseart === "allein_gruppe") {
+      html += `<h3 style="margin-top:18px">Anschluss an andere</h3>
+        <label class="field"><span>Gewünschte Formate ${dflt}</span></label>${chipGroup("gruppe.formate", GRUPPENFORMATE)}
+        <label class="field"><span>Bevorzugte Altersgruppe der Mitreisenden</span><small>optional, z. B. „50+“ oder „gemischt“</small><input type="text" data-bind="gruppe.alter" value="${esc(p.gruppe.alter)}"></label>`;
+    }
+    html += `<label class="field"><span>Weitere Wünsche oder Einschränkungen</span>
+        <small>z. B. barrierearm, vegetarisch, kein Mietwagen, Meerblick, Hund dabei</small>
+        <textarea data-bind="wuensche">${esc(p.wuensche)}</textarea></label>
+      <div class="btns"><button class="btn ghost" data-action="back">Zurück</button><button class="btn" data-action="next">Weiter</button></div>`;
+  }
+
+  if (st === 5) {
+    const n = nightsOf(p.start, p.ende);
+    const s = settings();
+    html += `<h2>Zusammenfassung</h2>
+      <dl class="summary-list">
+        <dt>Reiseart</dt><dd>${esc(ARTEN[p.reiseart].titel)}</dd>
+        <dt>Ziel</dt><dd><strong>${esc(p.ziel)}</strong></dd>
+        <dt>Zeitraum</dt><dd>${fmtDate(p.start)} – ${fmtDate(p.ende)} (${n} Nächte${p.flexTage ? `, ± ${p.flexTage} Tage` : ""})</dd>
+        <dt>Abreise</dt><dd>${esc(p.abreiseOrt)} · ${esc(p.verkehrsmittel)}</dd>
+        <dt>Budget p. P.</dt><dd>${euro(p.budgetMin)} – ${euro(p.budgetMax)}</dd>
+        <dt>Unterkunft</dt><dd>${esc(p.unterkunft)}${+p.sterne ? `, ca. ${p.sterne} ★` : ""}, ${esc(p.verpflegung)}</dd>
+        <dt>Stil</dt><dd>${esc((p.stil || []).join(", ") || "–")} · Tempo ${esc(p.tempo)}</dd>
+        ${p.reiseart === "allein_gruppe" ? `<dt>Anschluss</dt><dd>${esc(p.gruppe.formate.join(", ") || "–")}</dd>` : ""}
+        ${p.wuensche ? `<dt>Wünsche</dt><dd>${esc(p.wuensche)}</dd>` : ""}
+      </dl>
+      <div class="notice small">Die App recherchiert live im Web. Preise sind <strong>Richtwerte</strong> aus Suchergebnissen – verbindlich ist erst das Angebot auf der Buchungsseite.</div>
+      ${!s.url ? `<div class="notice error small">Noch keine Verbindung eingerichtet. <a href="#" data-action="go" data-view="settings">Zu den Einstellungen</a></div>` : ""}
+      <div class="btns">
+        <button class="btn ghost" data-action="back">Zurück</button>
+        <button class="btn ghost" data-action="edit">Details ändern</button>
+        <button class="btn" data-action="search">5 Angebote suchen</button>
+      </div>`;
+  }
+
+  html += `</div>`;
+  if (st === 1 && S.offers && S.offers.angebote) {
+    html += `<div class="card no-print"><h3>Letzte Suche</h3><p class="muted small">${esc(S.profile.ziel || "")} – ${S.offers.angebote.length} Angebote</p>
+      <div class="btns" style="margin-top:8px"><button class="btn secondary" data-action="go" data-view="offers">Angebote ansehen</button>
+      ${S.guide ? `<button class="btn secondary" data-action="go" data-view="guide">Reiseführer ansehen</button>` : ""}</div></div>`;
+  }
+  return html;
+}
+
+function validateStep2() {
+  const p = S.profile;
+  if (!p.ziel.trim()) return "Bitte ein Ziel eingeben.";
+  if (!p.start || !p.ende) return "Bitte An- und Abreisedatum wählen.";
+  if (p.start < todayIso()) return "Das Anreisedatum liegt in der Vergangenheit.";
+  const n = nightsOf(p.start, p.ende);
+  if (n < 1) return "Die Abreise muss nach der Anreise liegen.";
+  if (n > 60) return "Bitte maximal 60 Nächte wählen.";
+  return null;
+}
+function validateStep3() {
+  const p = S.profile;
+  if (+p.budgetMin < 0 || +p.budgetMax <= 0 || +p.budgetMin > +p.budgetMax) return "Bitte ein gültiges Budget angeben (von ≤ bis).";
+  return null;
+}
+
+/* ---------------- Angebote ---------------- */
+function offerCard(a) {
+  const u = a.unterkunft || {}, an = a.anreise || {}, pr = a.preis || {};
+  const preis = [euro(pr.proPersonVon), euro(pr.proPersonBis)].filter(Boolean).join(" – ");
+  const overBudget = pr.imBudget === false || (+pr.proPersonVon > +S.profile.budgetMax);
+  return `<article class="card">
+    <div class="offer-head"><span class="num">${esc(a.id)}</span>
+      <div><h3>${esc(a.titel)}</h3><p class="muted small" style="margin:0">${esc(a.ort)}${a.charakter ? ` · ${esc(a.charakter)}` : ""}</p></div></div>
+    <p>${esc(a.kurzbeschreibung)}</p>
+    ${a.passtWeil ? `<p><strong>Passt, weil:</strong> ${esc(a.passtWeil)}</p>` : ""}
+    <dl class="facts">
+      <dt>Unterkunft</dt><dd><strong>${esc(u.name)}</strong>${unverified(u)}<br><span class="small muted">${esc([u.art, +u.sterne ? u.sterne + " ★" : "", u.lage].filter(Boolean).join(" · "))}</span></dd>
+      <dt>Anreise</dt><dd>${esc(an.verkehrsmittel)}${an.dauer ? ` · ${esc(an.dauer)}` : ""}<br><span class="small muted">${esc(an.details)}${an.hinweis ? ` – ${esc(an.hinweis)}` : ""}</span></dd>
+      <dt>Richtpreis p. P.</dt><dd><strong>${preis || "k. A."}</strong>${overBudget ? `<span class="badge warn">über Budget</span>` : `<span class="badge ok">im Budget</span>`}
+        <br><span class="small muted">${esc(pr.enthalten || "")}${pr.quelle ? ` · Quelle: ${esc(pr.quelle)}` : ""}</span></dd>
+    </dl>
+    ${(a.highlights || []).length ? `<ul class="tight">${a.highlights.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
+    ${(a.nachteile || []).length ? `<details><summary>Ehrliche Nachteile</summary><ul class="tight">${a.nachteile.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}
+    <div class="links">${link(u.url, "Unterkunft")}${(a.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== u.url).map((l) => link(l.url, l.label)).join("")}</div>
+    <div class="btns"><button class="btn full" data-action="choose" data-id="${esc(a.id)}">Dieses Angebot wählen &amp; Reiseführer erstellen</button></div>
+  </article>`;
+}
+
+function viewOffers() {
+  const o = S.offers;
+  if (!o || !o.angebote) return `<div class="card"><p>Noch keine Angebote. <a href="#" data-action="go" data-view="wizard">Jetzt planen</a></p></div>`;
+  const p = S.profile;
+  return `<div class="card"><h2>${o.angebote.length} Angebote für ${esc(p.ziel)}</h2>
+      <p class="muted small">${fmtDate(p.start)} – ${fmtDate(p.ende)} · ${esc(ARTEN[p.reiseart].titel)} · ${o.suchen ?? "?"} Websuchen</p>
+      ${(o.hinweiseAllgemein || []).length ? `<div class="notice small"><strong>Gut zu wissen:</strong><ul class="tight">${o.hinweiseAllgemein.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></div>` : ""}
+      <div class="btns no-print"><button class="btn ghost" data-action="edit">Parameter ändern</button><button class="btn secondary" data-action="more">5 andere Angebote</button></div>
+    </div>
+    ${o.angebote.map(offerCard).join("")}
+    ${sourcesBlock(o.quellen)}`;
+}
+
+function sourcesBlock(list) {
+  if (!list || !list.length) return "";
+  return `<details class="card"><summary>Quellen der Recherche (${list.length})</summary>
+    <ul class="tight small">${list.map((s) => `<li>${link(s.url, s.title)}</li>`).join("")}</ul></details>`;
+}
+
+/* ---------------- Reiseführer ---------------- */
+const GUIDE_TABS = [
+  ["ueberblick", "Überblick"], ["sehen", "Sehenswertes"], ["akt", "Aktivitäten"], ["orte", "Schöne Orte"],
+  ["essen", "Restaurants"], ["plan", "Tagesplan"], ["quellen", "Quellen"]
+];
+
+function checkWrap(key, done, inner, checkable) {
+  if (!checkable) return `<div class="item">${inner}</div>`;
+  return `<div class="item check ${done[key] ? "done" : ""}"><input type="checkbox" data-action="done" data-key="${esc(key)}" ${done[key] ? "checked" : ""} aria-label="erledigt"><div style="flex:1">${inner}</div></div>`;
+}
+
+function guideSection(tab, g, offer, opts = {}) {
+  const done = opts.done || {}, ck = !!opts.checkable;
+  if (tab === "ueberblick") {
+    const pr = g.praktisches || {};
+    return `<p>${esc(g.ueberblick)}</p>
+      ${offer ? `<div class="notice small"><strong>${esc(offer.titel)}</strong> · ${esc((offer.unterkunft || {}).name)}<div class="links">${link((offer.unterkunft || {}).url, "Unterkunft buchen")}${(offer.buchungsLinks || []).filter((l) => safeUrl(l.url) && l.url !== (offer.unterkunft || {}).url).map((l) => link(l.url, l.label)).join("")}</div></div>` : ""}
+      <dl class="facts">
+        ${pr.wetter ? `<dt>Wetter</dt><dd>${esc(pr.wetter)}</dd>` : ""}
+        ${pr.mobilitaet ? `<dt>Unterwegs</dt><dd>${esc(pr.mobilitaet)}</dd>` : ""}
+        ${pr.geld ? `<dt>Geld</dt><dd>${esc(pr.geld)}</dd>` : ""}
+        ${pr.sicherheit ? `<dt>Sicherheit</dt><dd>${esc(pr.sicherheit)}</dd>` : ""}
+        ${pr.eventsImZeitraum ? `<dt>Im Zeitraum</dt><dd>${esc(pr.eventsImZeitraum)}</dd>` : ""}
+      </dl>`;
+  }
+  if (tab === "sehen") {
+    return (g.sehenswuerdigkeiten || []).map((s) => checkWrap("s:" + s.name, done, `
+      <h4>${esc(s.name)}${unverified(s)}</h4><p>${esc(s.beschreibung)}</p>
+      <p class="small muted">${esc([s.dauer && "Dauer: " + s.dauer, s.eintritt && "Eintritt: " + s.eintritt, s.oeffnung].filter(Boolean).join(" · "))}</p>
+      ${s.tipp ? `<p class="small"><strong>Tipp:</strong> ${esc(s.tipp)}</p>` : ""}<div class="links">${link(s.url)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
+  }
+  if (tab === "akt") {
+    const a = g.aktivitaeten || {};
+    const org = (a.organisiert || []).map((x) => checkWrap("a:" + x.name, done, `
+      <h4>${esc(x.name)}${x.inGruppe ? `<span class="badge ok">in der Gruppe</span>` : ""}${unverified(x)}</h4>
+      <p>${esc(x.beschreibung)}</p>
+      <p class="small muted">${esc([x.anbieter && "Anbieter: " + x.anbieter, x.preis, x.dauer].filter(Boolean).join(" · "))}</p>
+      ${x.buchung ? `<p class="small"><strong>Buchung:</strong> ${esc(x.buchung)}</p>` : ""}<div class="links">${link(x.url, "Anbieter")}</div>`, ck)).join("");
+    const self = (a.selbstorganisiert || []).map((x) => checkWrap("a:" + x.name, done, `
+      <h4>${esc(x.name)}</h4><p>${esc(x.beschreibung)}</p>
+      ${x.soGehts ? `<p class="small"><strong>So geht's:</strong> ${esc(x.soGehts)}</p>` : ""}
+      <p class="small muted">${esc([x.kosten, x.dauer].filter(Boolean).join(" · "))}</p><div class="links">${link(x.url)}</div>`, ck)).join("");
+    return `<h3>Organisiert</h3>${org || `<p class="muted">Keine Einträge.</p>`}<h3 style="margin-top:18px">Selbst organisiert</h3>${self || `<p class="muted">Keine Einträge.</p>`}`;
+  }
+  if (tab === "orte") {
+    return (g.schoeneOrte || []).map((o) => checkWrap("o:" + o.name, done, `
+      <h4>${esc(o.name)}</h4><p>${esc(o.warum)}</p>
+      ${o.besteZeit ? `<p class="small muted">Beste Zeit: ${esc(o.besteZeit)}</p>` : ""}
+      ${o.tipp ? `<p class="small"><strong>Tipp:</strong> ${esc(o.tipp)}</p>` : ""}<div class="links">${link(o.url)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
+  }
+  if (tab === "essen") {
+    return (g.restaurants || []).map((r) => checkWrap("r:" + r.name, done, `
+      <h4>${esc(r.name)} <span class="muted small">${esc(r.preisniveau || "")}</span>${unverified(r)}</h4>
+      <p class="small muted">${esc([r.kueche, r.lage].filter(Boolean).join(" · "))}</p>
+      <p>${esc(r.warum)}</p>
+      ${r.geeignetFuer ? `<p class="small"><strong>Besonders für:</strong> ${esc(r.geeignetFuer)}</p>` : ""}
+      ${r.reservierung ? `<p class="small"><strong>Reservierung:</strong> ${esc(r.reservierung)}</p>` : ""}<div class="links">${link(r.url)}</div>`, ck)).join("") || `<p class="muted">Keine Einträge.</p>`;
+  }
+  if (tab === "plan") {
+    return (g.tagesplan || []).map(dayBlock).join("") || `<p class="muted">Kein Tagesplan.</p>`;
+  }
+  if (tab === "quellen") {
+    return (g.quellen || []).length ? `<ul class="tight small">${g.quellen.map((s) => `<li>${link(s.url, s.title)}</li>`).join("")}</ul>` : `<p class="muted">Keine Quellen.</p>`;
+  }
+  return "";
+}
+
+function dayBlock(d) {
+  return `<div class="day"><h4>Tag ${esc(d.tag)}${d.datum ? ` · ${esc(d.datum)}` : ""}${d.titel ? ` – ${esc(d.titel)}` : ""}</h4>
+    ${d.vormittag ? `<p><strong>Vormittag:</strong> ${esc(d.vormittag)}</p>` : ""}
+    ${d.nachmittag ? `<p><strong>Nachmittag:</strong> ${esc(d.nachmittag)}</p>` : ""}
+    ${d.abend ? `<p><strong>Abend:</strong> ${esc(d.abend)}</p>` : ""}
+    ${d.beiRegen ? `<p class="small muted"><strong>Bei Regen:</strong> ${esc(d.beiRegen)}</p>` : ""}</div>`;
+}
+
+function tabsBar(tabs, current, action) {
+  return `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" class="${current === k ? "on" : ""}" data-action="${action}" data-tab="${k}">${l}</button>`).join("")}</div>`;
+}
+
+function viewGuide() {
+  const g = S.guide, o = S.offer, p = S.profile;
+  if (!g) return `<div class="card"><p>Noch kein Reiseführer. <a href="#" data-action="go" data-view="offers">Zu den Angeboten</a></p></div>`;
+  return `<div class="card">
+      <h2>Ihr Reiseführer: ${esc(o ? o.ort : p.ziel)}</h2>
+      <p class="muted small">${fmtDate(p.start)} – ${fmtDate(p.ende)} · ${esc(ARTEN[p.reiseart].titel)}</p>
+      <div class="btns no-print">
+        <button class="btn" data-action="save-trip">Reise speichern &amp; Reise-Modus</button>
+        <button class="btn ghost" data-action="go" data-view="offers">Andere Angebote</button>
+        <button class="btn ghost" data-action="print">Drucken / PDF</button>
+      </div>
+    </div>
+    ${tabsBar(GUIDE_TABS, S.guideTab, "gtab")}
+    <div class="card" id="guide-body">${guideSection(S.guideTab, g, o)}</div>`;
+}
+
+/* ---------------- Meine Reisen ---------------- */
+async function loadTrips() {
+  try {
+    const r = await api("/api/trips");
+    S.trips = r.trips || [];
+  } catch (e) {
+    S.trips = [];
+    S.error = e.message;
+  }
+  if (S.view === "trips") render();
+}
+
+function viewTrips() {
+  if (S.trips === null) return `<div class="card loader"><div class="spinner"></div><p class="muted">Reisen werden geladen …</p></div>`;
+  const t = todayIso();
+  const list = S.trips.map((x) => {
+    const state = x.end_date < t ? "vorbei" : x.start_date <= t ? "läuft gerade" : `in ${nightsOf(t, x.start_date)} Tagen`;
+    return `<div class="card trip-row" data-action="open-trip" data-id="${esc(x.id)}">
+      <div><strong>${esc(x.title)}</strong><br><span class="small muted">${fmtDate(x.start_date)} – ${fmtDate(x.end_date)} · ${esc((ARTEN[x.reiseart] || {}).titel || "")}</span></div>
+      <span class="badge ${state === "läuft gerade" ? "ok" : ""}">${state}</span></div>`;
+  }).join("");
+  return `<h2>Meine Reisen</h2>${list || `<div class="card"><p class="muted">Noch keine gespeicherten Reisen.</p><div class="btns"><button class="btn" data-action="go" data-view="wizard">Reise planen</button></div></div>`}`;
+}
+
+/* ---------------- Reise-Modus ---------------- */
+const TRIP_TABS = [["heute", "Heute"], ["tipp", "Spontan-Tipp"], ["plan", "Tagesplan"], ["sehen", "Sehenswertes"], ["akt", "Aktivitäten"], ["orte", "Orte"], ["essen", "Restaurants"], ["notizen", "Notizen"], ["ueberblick", "Infos"]];
+
+function tripDayIndex(trip) {
+  const p = trip.data.profile, t = todayIso();
+  if (t < p.start) return { status: "vorher", idx: 0, until: nightsOf(t, p.start) };
+  if (t > p.ende) return { status: "nachher", idx: 0 };
+  return { status: "läuft", idx: nightsOf(p.start, t) };
+}
+
+function viewTrip() {
+  const tr = S.trip;
+  if (!tr) return `<div class="card loader"><div class="spinner"></div></div>`;
+  const d = tr.data, g = d.guide || {}, p = d.profile;
+  const di = tripDayIndex(tr);
+  const head = `<div class="card"><h2>${esc(tr.title)}</h2>
+    <p class="muted small">${fmtDate(p.start)} – ${fmtDate(p.ende)} · ${esc((d.offer || {}).unterkunft ? d.offer.unterkunft.name : "")}</p>
+    <p>${di.status === "vorher" ? `Noch <strong>${di.until} ${di.until === 1 ? "Tag" : "Tage"}</strong> bis zur Abreise.` : di.status === "läuft" ? `Heute ist <strong>Tag ${di.idx + 1}</strong> Ihrer Reise.` : "Diese Reise liegt hinter Ihnen."}</p></div>`;
+
+  let body = "";
+  const tab = S.tripTab;
+  if (tab === "heute") {
+    const plan = g.tagesplan || [];
+    const idx = S.tripDay ?? Math.min(di.idx, Math.max(plan.length - 1, 0));
+    body = plan.length ? `<label class="field"><span>Tag wählen</span><select data-action="trip-day">${plan.map((x, i) => `<option value="${i}" ${i === idx ? "selected" : ""}>Tag ${esc(x.tag)}${x.datum ? " · " + esc(x.datum) : ""}${x.titel ? " – " + esc(x.titel) : ""}</option>`).join("")}</select></label>${dayBlock(plan[idx])}` : `<p class="muted">Kein Tagesplan vorhanden.</p>`;
+    body += `<div class="btns"><button class="btn secondary" data-action="ttab" data-tab="tipp">Spontan-Tipp holen</button></div>`;
+  } else if (tab === "tipp") {
+    const tips = (d.tips || []).slice().reverse();
+    body = `<p class="muted small">Live-Recherche für genau jetzt – z. B. bei Regen, Hunger oder freier Zeit.</p>
+      <div class="chips">${["Was kann ich jetzt in der Nähe unternehmen?", "Gutes Restaurant für heute Abend in der Nähe", "Es regnet – was ist eine gute Alternative?", "Ein Geheimtipp für heute"].map((q) => `<button class="chip" data-action="quick-tip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <label class="field"><span>Eigene Frage</span><textarea id="tip-q" placeholder="z. B. Wo kann man hier morgen früh schön frühstücken?"></textarea></label>
+      <label class="check small"><input type="checkbox" id="tip-loc"> <span>Standort mitsenden (auf ca. 100 m gerundet, nur für diese Frage)</span></label>
+      <div class="btns"><button class="btn" data-action="ask-tip">Tipp holen</button></div>
+      ${tips.map((t) => `<div class="tip"><p class="small muted">${esc(new Date(t.zeit).toLocaleString("de-DE"))} · ${esc(t.frage)}</p><p>${esc(t.antwort)}</p>
+        ${(t.vorschlaege || []).map((v) => `<div class="item"><h4>${esc(v.name)} ${v.entfernung ? `<span class="small muted">${esc(v.entfernung)}</span>` : ""}</h4><p class="small">${esc(v.warum)}${v.hinweis ? " – " + esc(v.hinweis) : ""}</p><div class="links">${link(v.url)}</div></div>`).join("")}</div>`).join("")}`;
+  } else if (tab === "notizen") {
+    body = `<label class="field"><span>Notizen zur Reise</span><small>Buchungsnummern, Treffpunkte, Erinnerungen – wird automatisch gespeichert.</small>
+      <textarea id="trip-notes" style="min-height:200px">${esc(d.notizen || "")}</textarea></label>`;
+  } else {
+    body = guideSection(tab, g, d.offer, { checkable: true, done: d.done || {} });
+  }
+
+  return `${head}${tabsBar(TRIP_TABS, tab, "ttab")}<div class="card">${body}</div>
+    <div class="btns no-print"><button class="btn ghost" data-action="go" data-view="trips">Alle Reisen</button><button class="btn danger" data-action="delete-trip">Reise löschen</button></div>`;
+}
+
+let saveTimer = null;
+function saveTripSoon() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { await api("/api/trips/" + encodeURIComponent(S.trip.id), { method: "PUT", body: { title: S.trip.title, data: S.trip.data } }); }
+    catch (e) { toast("Speichern fehlgeschlagen: " + e.message); }
+  }, 800);
+}
+
+function tipContext(tr) {
+  const d = tr.data, p = d.profile, o = d.offer || {};
+  const di = tripDayIndex(tr);
+  const plan = (d.guide && d.guide.tagesplan) || [];
+  const today = di.status === "läuft" ? plan[Math.min(di.idx, plan.length - 1)] : null;
+  return [
+    `Reiseart: ${ARTEN[p.reiseart].titel}`,
+    `Ort: ${o.ort || p.ziel}`,
+    `Unterkunft: ${(o.unterkunft || {}).name || "unbekannt"} (${(o.unterkunft || {}).lage || ""})`,
+    `Zeitraum: ${p.start} bis ${p.ende}`,
+    `Interessen: ${(p.stil || []).join(", ")}`,
+    `Mobilität: ${p.mobilitaet}`,
+    p.wuensche ? `Wünsche: ${p.wuensche}` : "",
+    today ? `Heutiger Plan: ${today.vormittag} / ${today.nachmittag} / ${today.abend}` : ""
+  ].filter(Boolean).join("\n");
+}
+
+async function askTip(question) {
+  const useLoc = document.getElementById("tip-loc")?.checked;
+  let location = null;
+  if (useLoc && navigator.geolocation) {
+    location = await new Promise((resolve) => navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => { toast("Standort nicht verfügbar – Tipp ohne Standort."); resolve(null); },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }));
+  }
+  try {
+    const r = await runLoading("Spontan-Tipp", ["Suche passende Orte …", "Prüfe Öffnungszeiten …"], (signal) =>
+      api("/api/tip", { method: "POST", signal, body: { question, context: tipContext(S.trip), location, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } }));
+    S.trip.data.tips = [...(S.trip.data.tips || []), r].slice(-30);
+    saveTripSoon();
+  } catch (e) {
+    if (e.name !== "AbortError") S.error = e.message;
+  }
+  S.tripTab = "tipp";
+  render();
+}
+
+/* ---------------- Einstellungen ---------------- */
+function viewSettings() {
+  const s = settings();
+  return `<div class="card"><h2>Einstellungen</h2>
+    <p class="muted small">Verbindung zu Ihrem Cloudflare Worker. Die Daten bleiben in diesem Browser gespeichert.</p>
+    <label class="field"><span>Worker-Adresse</span><small>z. B. https://reiseberater.rsab1963.workers.dev</small><input type="url" id="set-url" value="${esc(s.url)}" placeholder="https://…workers.dev"></label>
+    <label class="field"><span>Zugangscode</span><small>der Wert des Secrets APP_TOKEN im Worker</small><input type="password" id="set-token" value="${esc(s.token)}" autocomplete="off"></label>
+    <div class="btns"><button class="btn" data-action="save-settings">Speichern &amp; testen</button></div>
+    <p id="set-result" class="small"></p></div>
+    <div class="card"><h3>Vorschlagswerte</h3><p class="muted small">Setzt alle Parameter des Fragenkatalogs auf die Vorschlagswerte zurück (Ziel und Zeitraum werden geleert).</p>
+    <div class="btns"><button class="btn ghost" data-action="reset-profile">Zurücksetzen</button></div></div>`;
+}
+
+/* ================================================================
+   Aktionen
+   ================================================================ */
+async function searchOffers(exclude = []) {
+  try {
+    const r = await runLoading("Angebote werden zusammengestellt", [
+      "Prüfe Saison und Wetter im Zeitraum …", "Suche passende Unterkünfte …", "Vergleiche Anreise per Bahn, Auto und Flug …", "Kalkuliere Richtpreise …", "Wähle 5 unterschiedliche Angebote aus …"
+    ], (signal) => api("/api/offers", { method: "POST", signal, body: { profile: S.profile, exclude } }));
+    S.offers = r; store.set("rb_offers", r);
+    S.guide = null; S.offer = null; store.del("rb_guide"); store.del("rb_offer");
+    S.view = "offers";
+  } catch (e) {
+    if (e.name !== "AbortError") S.error = e.message;
+  }
+  render(); window.scrollTo(0, 0);
+}
+
+async function createGuide(offer) {
+  try {
+    const r = await runLoading("Ihr Reiseführer entsteht", [
+      "Recherchiere Sehenswürdigkeiten …", "Suche organisierte Aktivitäten …", "Finde besonders schöne Orte …", "Prüfe Restaurants und Reservierung …", "Plane die einzelnen Tage …"
+    ], (signal) => api("/api/guide", { method: "POST", signal, body: { profile: S.profile, offer } }));
+    S.offer = offer; S.guide = r; S.guideTab = "ueberblick";
+    store.set("rb_offer", offer); store.set("rb_guide", r);
+    S.view = "guide";
+  } catch (e) {
+    if (e.name !== "AbortError") S.error = e.message;
+  }
+  render(); window.scrollTo(0, 0);
+}
+
+async function openTrip(id) {
+  S.view = "trip"; S.trip = null; S.tripTab = "heute"; S.tripDay = null; S.error = null; render();
+  try {
+    const r = await api("/api/trips/" + encodeURIComponent(id));
+    S.trip = r.trip;
+  } catch (e) { S.error = e.message; S.view = "trips"; }
+  render();
+}
+
+document.addEventListener("click", async (ev) => {
+  const el = ev.target.closest("[data-action]");
+  if (!el) return;
+  const a = el.dataset.action;
+  if (["done", "trip-day"].includes(a)) return; // über change behandelt
+  if (el.tagName === "A") ev.preventDefault();
+  const p = S.profile;
+
+  switch (a) {
+    case "go":
+      S.view = el.dataset.view; S.error = null;
+      if (S.view === "trips") S.trips = null;
+      if (S.view === "wizard" && S.step === 5 && !p.ziel) S.step = 1;
+      render(); window.scrollTo(0, 0); break;
+    case "art":
+      p.reiseart = el.dataset.value; saveProfile(); render(); break;
+    case "chip": {
+      const arr = getPath(p, el.dataset.path) || [];
+      const v = el.dataset.value;
+      setPath(p, el.dataset.path, arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+      saveProfile(); el.classList.toggle("on"); break;
+    }
+    case "next": {
+      const err = S.step === 2 ? validateStep2() : S.step === 3 ? validateStep3() : null;
+      if (err) { toast(err); break; }
+      S.step = Math.min(5, S.step + 1); render(); window.scrollTo(0, 0); break;
+    }
+    case "quick": {
+      const err = validateStep2();
+      if (err) { toast(err); break; }
+      S.step = 5; render(); window.scrollTo(0, 0); break;
+    }
+    case "back": S.step = Math.max(1, S.step - 1); render(); window.scrollTo(0, 0); break;
+    case "edit": S.view = "wizard"; S.step = 3; S.error = null; render(); window.scrollTo(0, 0); break;
+    case "search": {
+      const err = validateStep2() || validateStep3();
+      if (err) { toast(err); break; }
+      await searchOffers(); break;
+    }
+    case "more": await searchOffers((S.offers?.angebote || []).map((x) => `${x.titel} (${(x.unterkunft || {}).name || ""})`)); break;
+    case "choose": {
+      const offer = S.offers.angebote.find((x) => String(x.id) === el.dataset.id);
+      if (offer) await createGuide(offer);
+      break;
+    }
+    case "abort": if (currentAbort) currentAbort.abort(); break;
+    case "gtab": S.guideTab = el.dataset.tab; render(); break;
+    case "print": {
+      const tabsHtml = GUIDE_TABS.filter(([k]) => k !== "quellen").map(([k, l]) => `<h3>${l}</h3>${guideSection(k, S.guide, S.offer)}`).join("");
+      const box = document.getElementById("guide-body"); const prev = box.innerHTML;
+      box.innerHTML = tabsHtml; window.print(); box.innerHTML = prev; break;
+    }
+    case "save-trip": {
+      const o = S.offer || {};
+      const title = `${o.ort || p.ziel} · ${new Date(p.start + "T12:00:00Z").toLocaleDateString("de-DE", { month: "short", year: "numeric", timeZone: "UTC" })}`;
+      try {
+        const r = await api("/api/trips", { method: "POST", body: { title, data: { profile: p, offer: S.offer, guide: S.guide, done: {}, tips: [], notizen: "" } } });
+        toast("Reise gespeichert.");
+        await openTrip(r.id);
+      } catch (e) { S.error = e.message; render(); }
+      break;
+    }
+    case "open-trip": await openTrip(el.dataset.id); break;
+    case "ttab": S.tripTab = el.dataset.tab; S.error = null; render(); break;
+    case "quick-tip": await askTip(el.dataset.q); break;
+    case "ask-tip": {
+      const q = (document.getElementById("tip-q")?.value || "").trim();
+      if (!q) { toast("Bitte eine Frage eingeben."); break; }
+      await askTip(q); break;
+    }
+    case "delete-trip":
+      if (!confirm("Diese Reise endgültig löschen? Das kann nicht rückgängig gemacht werden.")) break;
+      try { await api("/api/trips/" + encodeURIComponent(S.trip.id), { method: "DELETE" }); toast("Reise gelöscht."); S.view = "trips"; S.trips = null; S.trip = null; }
+      catch (e) { S.error = e.message; }
+      render(); break;
+    case "save-settings": {
+      const url = document.getElementById("set-url").value.trim();
+      const token = document.getElementById("set-token").value.trim();
+      store.set("rb_settings", { url, token });
+      const out = document.getElementById("set-result");
+      out.textContent = "Teste Verbindung …";
+      try {
+        const h = await api("/api/health");
+        await api("/api/trips");
+        out.innerHTML = `<span style="color:var(--ok)">✓ Verbunden – Modell ${esc(h.model)}, Datenbank ${h.db ? "aktiv" : "fehlt"}.</span>`;
+      } catch (e) { out.innerHTML = `<span style="color:var(--danger)">✗ ${esc(e.message)}</span>`; }
+      break;
+    }
+    case "reset-profile":
+      if (!confirm("Alle Parameter auf die Vorschlagswerte zurücksetzen?")) break;
+      S.profile = clone(DEFAULTS); S.step = 1; saveProfile(); toast("Zurückgesetzt."); break;
+  }
+});
+
+document.addEventListener("input", (ev) => {
+  const el = ev.target;
+  if (el.id === "trip-notes" && S.trip) { S.trip.data.notizen = el.value; saveTripSoon(); return; }
+  const path = el.dataset.bind;
+  if (!path) return;
+  let v = el.value;
+  if (el.type === "number" || ["sterne", "flexTage"].includes(path)) v = v === "" ? "" : Number(v);
+  setPath(S.profile, path, v);
+
+  if (path === "start" && v) {
+    const ende = document.querySelector('[data-bind="ende"]');
+    if (!S.profile.ende || S.profile.ende <= v) { S.profile.ende = addDays(v, 7); if (ende) ende.value = S.profile.ende; }
+    if (ende) ende.min = v;
+  }
+  if (path === "start" || path === "ende") {
+    const n = nightsOf(S.profile.start, S.profile.ende);
+    const el2 = document.getElementById("nights");
+    if (el2) el2.textContent = n > 0 ? `${n} Nächte` : "Die Abreise muss nach der Anreise liegen.";
+  }
+  saveProfile();
+});
+
+document.addEventListener("change", (ev) => {
+  const el = ev.target;
+  if (el.dataset.action === "done" && S.trip) {
+    S.trip.data.done = S.trip.data.done || {};
+    if (el.checked) S.trip.data.done[el.dataset.key] = true; else delete S.trip.data.done[el.dataset.key];
+    el.closest(".item")?.classList.toggle("done", el.checked);
+    saveTripSoon();
+  }
+  if (el.dataset.action === "trip-day") { S.tripDay = Number(el.value); render(); }
+  if (el.tagName === "SELECT" && el.dataset.bind) el.dispatchEvent(new Event("input", { bubbles: true }));
+});
+
+// Erststart: ohne Verbindung direkt zu den Einstellungen
+if (!settings().url) S.view = "settings";
+render();
+</script>
+</body>
+</html>
