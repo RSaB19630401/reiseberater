@@ -138,12 +138,23 @@ const DEFAULTS = {
   abreiseOrt: "Brühl (Baden), 68782",
   verkehrsmittel: "flexibel",     // flexibel | Flug | Bahn | Auto
   budgetMin: 500, budgetMax: 2000,
-  unterkunft: "Hotel", sterne: 4, verpflegung: "Frühstück",
+  unterkunft: "Hotel", sterne: 4, verpflegung: "Halbpension", ernaehrung: "",
+  hotel: {
+    bewertungMin: 8, groesse: "egal", adultsOnly: "ja", zimmer: [],
+    lage: "ruhig, Zentrum zu Fuß/ÖPNV erreichbar", entfernung: "egal",
+    ausstattung: ["WLAN", "Klimaanlage"]
+  },
+  flug: { stopps: "max1", abflugNichtVor: "07:00", gepaeck: "inklusive", klasse: "Economy" },
+  bahn: { klasse: "2. Klasse", maxUmstiege: 2 },
+  transfer: "gewünscht",
+  mietwagen: { bedarf: "sinnvoll", kategorie: "Kompaktklasse", getriebe: "egal", versicherung: "Vollkasko ohne Selbstbeteiligung", uebernahme: "Flughafen" },
+  buchung: { storno: "bevorzugt", art: "vergleichen" },
+  muss: {},                        // Kriterium → true = Ausschlusskriterium
   stil: ["Kultur", "Natur"], tempo: "moderat",
-  mobilitaet: "je nach Ziel – ÖPNV oder Mietwagen",
   paar: { nameA: "", nameB: "", interessenA: [], interessenB: [] },
   gruppe: { formate: ["Kleingruppentouren", "Kurse", "Geführte Wanderungen"], alter: "" },
-  wuensche: ""
+  wuensche: "",
+  v: 2
 };
 
 const ARTEN = {
@@ -167,7 +178,16 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 function mergeDefaults(p) {
   const d = clone(DEFAULTS);
   if (!p) return d;
-  return { ...d, ...p, paar: { ...d.paar, ...(p.paar || {}) }, gruppe: { ...d.gruppe, ...(p.gruppe || {}) } };
+  // Ältere Profile: nur persönliche Angaben übernehmen, Vorschlagswerte neu setzen
+  if (p.v !== d.v) {
+    const keep = {};
+    ["reiseart", "ziel", "start", "ende", "flexTage", "stil", "tempo", "paar", "gruppe", "wuensche"].forEach((k) => { if (p[k] !== undefined) keep[k] = p[k]; });
+    p = keep;
+  }
+  const nested = ["paar", "gruppe", "hotel", "flug", "bahn", "mietwagen", "buchung", "muss"];
+  const out = { ...d, ...p, v: d.v };
+  nested.forEach((k) => { out[k] = { ...d[k], ...(p[k] || {}) }; });
+  return out;
 }
 
 const S = {
@@ -183,7 +203,8 @@ const S = {
   tripTab: "heute",
   tripDay: null,
   loading: null,       // { title, msgs, started }
-  error: null
+  error: null,
+  open: new Set(["rahmen"])   // aufgeklappte Themenblöcke
 };
 const saveProfile = () => store.set("rb_profile", S.profile);
 
@@ -294,11 +315,29 @@ function chipGroup(path, options) {
   const sel = getPath(S.profile, path) || [];
   return `<div class="chips">${options.map((o) => `<button type="button" class="chip ${sel.includes(o) ? "on" : ""}" data-action="chip" data-path="${path}" data-value="${esc(o)}">${esc(o)}</button>`).join("")}</div>`;
 }
-function selectField(path, label, options, hint = "") {
-  const v = getPath(S.profile, path);
-  return `<label class="field"><span>${label} ${dflt}${hint ? `<small>${hint}</small>` : ""}</span>
-    <select data-bind="${path}">${options.map((o) => { const [val, txt] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(val)}" ${String(v) === String(val) ? "selected" : ""}>${esc(txt)}</option>`; }).join("")}</select></label>`;
+/** Schalter "muss": ein angehaktes Kriterium wird zum Ausschlusskriterium */
+function mustToggle(key) {
+  if (!key) return "";
+  return `<label class="must" title="Angehakt: Angebote ohne dieses Merkmal werden ausgeschlossen. Sonst wird es nur bevorzugt.">
+    <input type="checkbox" data-must="${key}" ${S.profile.muss[key] ? "checked" : ""}> muss</label>`;
 }
+function fieldHead(label, mustKey, hint = "") {
+  return `<div class="field-head"><span>${label} ${dflt}</span>${mustToggle(mustKey)}</div>${hint ? `<small class="hint">${hint}</small>` : ""}`;
+}
+function selectField(path, label, options, mustKey = "", hint = "") {
+  const v = getPath(S.profile, path);
+  return `<div class="field">${fieldHead(label, mustKey, hint)}
+    <select data-bind="${path}" aria-label="${esc(label)}">${options.map((o) => { const [val, txt] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(val)}" ${String(v) === String(val) ? "selected" : ""}>${esc(txt)}</option>`; }).join("")}</select></div>`;
+}
+function chipField(path, label, options, mustKey = "", hint = "") {
+  return `<div class="field">${fieldHead(label, mustKey, hint)}${chipGroup(path, options)}</div>`;
+}
+function block(id, title, sub, inner) {
+  return `<details class="block" data-block="${id}" ${S.open.has(id) ? "open" : ""}>
+    <summary><span>${title}</span><small>${sub}</small></summary><div class="block-body">${inner}</div></details>`;
+}
+const fliegt = (p) => p.verkehrsmittel === "flexibel" || p.verkehrsmittel === "Flug";
+const bahnt = (p) => p.verkehrsmittel === "flexibel" || p.verkehrsmittel === "Bahn";
 
 function viewWizard() {
   const p = S.profile, st = S.step;
@@ -335,21 +374,80 @@ function viewWizard() {
   }
 
   if (st === 3) {
-    html += `<h2>Rahmen der Reise</h2>
-      <p class="muted">Alle Werte sind Vorschläge – ändern Sie nur, was nicht passt.</p>
+    const h = p.hotel, f = p.flug, b = p.bahn, m = p.mietwagen, bu = p.buchung;
+    const rahmen = `
       <label class="field"><span>Abreiseort ${dflt}</span><input type="text" data-bind="abreiseOrt" value="${esc(p.abreiseOrt)}"></label>
       ${selectField("verkehrsmittel", "Anreise", [["flexibel", "flexibel – Bahn, Auto oder Flug, je nach Ziel"], ["Flug", "Flug (FRA, STR, FKB)"], ["Bahn", "Bahn"], ["Auto", "Auto"]])}
       <div class="row">
         <label class="field"><span>Budget p. P. von (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMin" value="${esc(p.budgetMin)}"></label>
         <label class="field"><span>bis (€) ${dflt}</span><input type="number" min="0" step="50" data-bind="budgetMax" value="${esc(p.budgetMax)}"></label>
       </div>
-      <p class="small muted">Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum.</p>
+      <p class="small muted">Inklusive An- und Abreise und Unterkunft, für den gesamten Zeitraum.</p>`;
+
+    const hotel = `
       <div class="row">
-        ${selectField("unterkunft", "Unterkunft", ["Hotel", "Boutique-Hotel", "Ferienwohnung", "Pension / B&B", "Resort", "Agriturismo / Landgut", "egal – bestes Angebot"])}
-        ${selectField("sterne", "Kategorie", [[3, "ca. 3 Sterne"], [4, "ca. 4 Sterne"], [5, "ca. 5 Sterne"], [0, "egal"]])}
+        ${selectField("unterkunft", "Unterkunftsart", ["Hotel", "Boutique-Hotel", "Ferienwohnung", "Pension / B&B", "Resort", "Agriturismo / Landgut", "egal – bestes Angebot"], "unterkunft")}
+        ${selectField("sterne", "Kategorie", [[3, "ca. 3 Sterne"], [4, "ca. 4 Sterne"], [5, "ca. 5 Sterne"], [0, "egal"]], "sterne")}
       </div>
-      ${selectField("verpflegung", "Verpflegung", ["ohne", "Frühstück", "Halbpension", "All inclusive"])}
-      ${selectField("mobilitaet", "Mobilität vor Ort", ["je nach Ziel – ÖPNV oder Mietwagen", "nur ÖPNV / zu Fuß", "Mietwagen", "eigenes Auto"])}
+      <div class="row">
+        ${selectField("hotel.bewertungMin", "Gästebewertung", [[0, "egal"], [7.5, "ab 7,5 von 10"], [8, "ab 8,0 von 10"], [8.5, "ab 8,5 von 10"], [9, "ab 9,0 von 10"]], "bewertung")}
+        ${selectField("hotel.groesse", "Größe des Hauses", ["egal", "klein & familiär", "mittelgroß", "großes Haus / Resort"], "groesse")}
+      </div>
+      ${p.reiseart === "paar" ? selectField("hotel.adultsOnly", "Erwachsenenhotel", [["ja", "Erwachsenenhotel bevorzugt"], ["nein", "egal"]], "adultsOnly") : ""}
+      ${selectField("hotel.lage", "Lage", ["ruhig, Zentrum zu Fuß/ÖPNV erreichbar", "direkt am Strand", "Altstadt / mitten im Zentrum", "ländlich / in der Natur", "egal"], "lage")}
+      ${selectField("hotel.entfernung", "Entfernung zu Zentrum oder Strand", ["egal", "max. 10 Min. zu Fuß", "max. 20 Min. zu Fuß oder mit ÖPNV", "max. 30 Min. mit dem Auto"], "entfernung")}
+      ${chipField("hotel.zimmer", "Zimmer", ["Balkon / Terrasse", "Meerblick", "Bergblick", "Suite", "Badewanne", "ruhige Zimmerseite"], "zimmer")}`;
+
+    const ausstattung = `
+      ${chipField("hotel.ausstattung", "Ausstattung", ["WLAN", "Klimaanlage", "Pool", "Spa / Wellness", "Fitness", "Parkplatz", "Aufzug", "barrierefrei", "Restaurant im Haus", "Bar"], "ausstattung")}
+      ${selectField("verpflegung", "Verpflegung", ["ohne", "Frühstück", "Halbpension", "All inclusive"], "verpflegung")}
+      <div class="field">${fieldHead("Ernährung", "ernaehrung", "optional, z. B. vegetarisch, glutenfrei, laktosefrei")}
+        <input type="text" data-bind="ernaehrung" value="${esc(p.ernaehrung)}" placeholder="keine Besonderheiten"></div>`;
+
+    let anreise = "";
+    if (fliegt(p)) anreise += `<h4 class="sub">Flug</h4>
+      ${selectField("flug.stopps", "Umstiege", [["direkt", "nur Direktflug"], ["max1", "max. 1 Umstieg, Direktflug bevorzugt"], ["egal", "egal"]], "stopps")}
+      <div class="row">
+        ${selectField("flug.abflugNichtVor", "Abflugzeit", [["egal", "egal"], ["06:00", "nicht vor 6 Uhr"], ["07:00", "nicht vor 7 Uhr"], ["08:00", "nicht vor 8 Uhr"], ["09:00", "nicht vor 9 Uhr"]], "abflug")}
+        ${selectField("flug.gepaeck", "Gepäck", [["inklusive", "Aufgabegepäck inklusive"], ["handgepaeck", "Handgepäck reicht"]], "gepaeck")}
+      </div>
+      ${selectField("flug.klasse", "Flugklasse", ["Economy", "Premium Economy", "Business"], "klasse")}`;
+    if (bahnt(p)) anreise += `<h4 class="sub">Bahn</h4>
+      <div class="row">
+        ${selectField("bahn.klasse", "Klasse", ["2. Klasse", "1. Klasse"], "bahnklasse")}
+        ${selectField("bahn.maxUmstiege", "Umstiege", [[0, "nur Direktverbindung"], [1, "max. 1"], [2, "max. 2"], [9, "egal"]], "umstiege")}
+      </div>`;
+    anreise += selectField("transfer", "Transfer zum Hotel", [["gewünscht", "Transfer gewünscht"], ["selbst", "selbst organisiert"]], "transfer");
+    if (p.verkehrsmittel === "Auto") anreise = `<p class="small muted">Anreise mit dem eigenen Auto – Parkplatz am Hotel ggf. unter „Ausstattung“ wählen.</p>` + anreise;
+
+    const mietwagen = `
+      ${selectField("mietwagen.bedarf", "Mietwagen", [["sinnvoll", "nur wenn am Ziel sinnvoll"], ["immer", "für den ganzen Aufenthalt"], ["nie", "nie – ÖPNV, zu Fuß, Taxi"]])}
+      ${m.bedarf === "nie" ? "" : `<div class="row">
+        ${selectField("mietwagen.kategorie", "Kategorie", ["Kleinwagen", "Kompaktklasse", "Mittelklasse", "SUV", "Cabrio"], "mwKategorie")}
+        ${selectField("mietwagen.getriebe", "Getriebe", ["egal", "Automatik", "Schaltung"], "getriebe")}
+      </div>
+      <div class="row">
+        ${selectField("mietwagen.versicherung", "Versicherung", ["Vollkasko ohne Selbstbeteiligung", "Vollkasko mit Selbstbeteiligung"], "mwVersicherung")}
+        ${selectField("mietwagen.uebernahme", "Übernahme", ["Flughafen", "am Hotel / im Ort", "egal"], "uebernahme")}
+      </div>`}`;
+
+    const buchung = `
+      ${selectField("buchung.storno", "Stornierung", [["bevorzugt", "kostenlos stornierbar bevorzugt"], ["egal", "egal – günstigster Preis"]], "storno")}
+      ${selectField("buchung.art", "Buchungsart", [["vergleichen", "Pauschalreise und Einzelbuchung vergleichen"], ["pauschal", "Pauschalreise"], ["einzeln", "Einzelbausteine"]], "buchungsart")}
+      <details class="info"><summary>Pauschalreise oder Einzelbausteine?</summary>${INFO_PAUSCHAL}</details>
+      <p class="small muted">Einreisebestimmungen und ein Hinweis zu Reiseversicherungen erscheinen automatisch bei den Angeboten.</p>`;
+
+    const nMuss = Object.values(p.muss).filter(Boolean).length;
+    html += `<h2>Details zur Reise</h2>
+      <p class="muted">Alle Werte sind vorbelegt – öffnen Sie nur die Bereiche, die Sie ändern möchten.
+      Mit <strong>„muss“</strong> wird ein Merkmal zum Ausschlusskriterium, sonst wird es nur bevorzugt.</p>
+      ${nMuss > 4 ? `<div class="notice small">Sie haben ${nMuss} Muss-Kriterien gewählt. Je mehr harte Kriterien, desto weniger Angebote findet die Suche.</div>` : ""}
+      ${block("rahmen", "Rahmen", "Abreise, Verkehrsmittel, Budget", rahmen)}
+      ${block("hotel", "Hotel & Lage", "Art, Bewertung, Größe, Lage, Zimmer", hotel)}
+      ${block("ausstattung", "Ausstattung & Verpflegung", "Pool, WLAN, Verpflegung, Ernährung", ausstattung)}
+      ${p.verkehrsmittel !== "Auto" || true ? block("anreise", "Anreise", fliegt(p) ? "Umstiege, Abflugzeit, Gepäck, Transfer" : "Verbindung, Transfer", anreise) : ""}
+      ${block("mietwagen", "Mietwagen & Mobilität", "Bedarf, Kategorie, Versicherung", mietwagen)}
+      ${block("buchung", "Buchung & Absicherung", "Stornierung, Pauschalreise", buchung)}
       <div class="btns"><button class="btn ghost" data-action="back">Zurück</button><button class="btn" data-action="next">Weiter</button></div>`;
   }
 
