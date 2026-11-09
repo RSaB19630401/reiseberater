@@ -1126,7 +1126,10 @@ document.addEventListener("click", async (ev) => {
       if (err) { toast(err); break; }
       await searchOffers(); break;
     }
-    case "more": await searchOffers((S.offers?.angebote || []).map((x) => `${x.titel} (${(x.unterkunft || {}).name || ""})`)); break;
+    case "more":
+      if (!confirm("5 neue Angebote suchen? Das startet eine weitere kostenpflichtige Live-Recherche. Die aktuellen Angebote werden ersetzt.")) break;
+      await searchOffers((S.offers?.angebote || []).map((x) => `${x.titel} (${(x.unterkunft || {}).name || ""})`));
+      break;
     case "choose": {
       const offer = S.offers.angebote.find((x) => String(x.id) === el.dataset.id);
       if (offer) await createGuide(offer);

@@ -28,7 +28,7 @@ const DEFAULT_MODEL = "claude-sonnet-5-5";
 const MAX_BODY_BYTES = 1_000_000;
 
 // Obergrenzen für Websuchen pro Anfrage (Kostenbremse)
-const SEARCH_LIMITS = { offers: 10, guide: 12, tip: 3 };
+const SEARCH_LIMITS = { offers: 6, guide: 8, tip: 2 };
 
 // Link-Prüfung: höchstens so viele Links pro Anfrage aktiv abrufen
 // (Cloudflare begrenzt die Zahl ausgehender Anfragen je Aufruf)
@@ -713,7 +713,7 @@ JSON-Schema:
     system: baseSystem(),
     user,
     maxUses: SEARCH_LIMITS.offers,
-    maxTokens: 32000,
+    maxTokens: 16000,
   });
 
   if (!Array.isArray(data.angebote) || data.angebote.length === 0) {
@@ -747,11 +747,11 @@ Gewähltes Angebot:
 ${JSON.stringify(body.offer, null, 2).slice(0, 8000)}
 
 Aufgabe: Erstelle einen persönlichen Reiseführer für genau dieses Angebot und diesen Zeitraum.
-- 8–12 wichtigste Sehenswürdigkeiten (realistische Dauer, Eintritt, Öffnungs-/Saisonhinweise für den Zeitraum, Tipp gegen Wartezeiten).
-- Aktivitäten getrennt nach "organisiert" (mit Anbieter, Preis, Buchungsweg, ob in der Gruppe) und "selbstorganisiert" (mit konkreter Anleitung), je 5–8.
-- 3–6 Tagesausflüge in die Umgebung (Ziel, Entfernung/Fahrzeit, organisiert mit Anbieter und Preis oder selbst organisiert mit Anleitung).
-- 5–8 besonders schöne Orte (Aussichtspunkte, Gassen, Strände, Gärten) mit bester Tageszeit.
-- 8–12 Restaurants in gemischtem Preisniveau mit Küche, Lage, Reservierungshinweis und für wen sie besonders geeignet sind.
+- 6–8 wichtigste Sehenswürdigkeiten (realistische Dauer, Eintritt, Öffnungs-/Saisonhinweise für den Zeitraum, Tipp gegen Wartezeiten).
+- Aktivitäten getrennt nach "organisiert" (mit Anbieter, Preis, Buchungsweg, ob in der Gruppe) und "selbstorganisiert" (mit konkreter Anleitung), je 4–5.
+- 3–4 Tagesausflüge in die Umgebung (Ziel, Entfernung/Fahrzeit, organisiert mit Anbieter und Preis oder selbst organisiert mit Anleitung).
+- 4–5 besonders schöne Orte (Aussichtspunkte, Gassen, Strände, Gärten) mit bester Tageszeit.
+- 6–8 Restaurants in gemischtem Preisniveau mit Küche, Lage, Reservierungshinweis und für wen sie besonders geeignet sind.
 - Einen Tagesplan für ${tage} Tage (Anreisetag bis Abreisetag) mit Schlechtwetter-Alternative je Tag.${eigen(p) ? " Die Anreise organisiert der Kunde selbst – plane am ersten und letzten Tag nur leichte Programmpunkte ohne feste Uhrzeiten." : ""}
 - Praktisches: Wetter im Zeitraum, Mobilität vor Ort, Bezahlen/Trinkgeld, Sicherheit, Feiertage/Events im Zeitraum.
 
@@ -776,7 +776,7 @@ JSON-Schema:
     system: baseSystem(),
     user,
     maxUses: SEARCH_LIMITS.guide,
-    maxTokens: 32000,
+    maxTokens: 18000,
   });
 
   const linkInfo = await verifyLinks(data, sources, { ort: body.offer.ort || p.ziel });
@@ -816,7 +816,7 @@ JSON-Schema:
     system: baseSystem(),
     user,
     maxUses: SEARCH_LIMITS.tip,
-    maxTokens: 4000,
+    maxTokens: 2500,
   });
   await verifyLinks(data, sources, { ort: "" });
   return { ...data, quellen: sources.slice(0, 8), frage: q, zeit: new Date().toISOString() };
